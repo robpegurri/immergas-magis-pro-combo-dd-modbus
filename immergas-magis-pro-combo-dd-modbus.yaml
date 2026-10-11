@@ -2554,7 +2554,7 @@ sensor:
       return (float) id(dd_emu_33_ack_count);
   # Boiler clock (PDU 2300: bits 15-13 weekday 1 = Mon .. 7 = Sun, 12-8 hour, 7-0 minute) minus HA local time,
   # in minutes (+ ahead / - behind). The zone schedules run on the boiler clock. Resolution 1 min.
-  # REGISTER_MAP.md: the boiler clock does not follow DST - expect about -60 min while summer time is in force.
+  # Magis Combo V2 fw 5.03 + physical panel: 0 min on 11/10/2026 (summer time), i.e. that clock follows DST.
   - platform: template
     name: "${entity_prefix}Boiler clock drift"
     id: controller_clock_drift
