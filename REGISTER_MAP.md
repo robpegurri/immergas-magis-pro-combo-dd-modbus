@@ -60,7 +60,7 @@ Verified on **three buses** (D+/D-, T-/T+, NASA) at standby and during a forced 
 |---|---|---|---|---|
 | 2000 | Operating mode (0 standby, 1 summer DHW, 2 cooling, 3 winter CH+DHW) | — | enum | CONFIRMED |
 | 2001 | **Status flags** (bitfield): **bit 3 = always 1**; **bit 0 (8→9) = DHW request pending** — set ~9 min before every DHW cycle, cleared when the 3-way valve switches to DHW (15/15 cases); **bit 2 (8→12) = boiler anomaly active (2100 ≠ 0)** — matches to the second both E193 "Device in test mode" (service menu M) and E121 "Zone 1 panel missing". Dominus: `mb-water-request` | bit 0 = D09 (DHW request) | bitfield | CONFIRMED |
-| 2010 | Zone status / phase | — | bitfield | CONFIRMED |
+| 2010 | Zone status / phase: **bit 6 = Comfort, bit 7 = Eco, bit 2 = Manual, bit 3 = zone request** (2010 = 12 with heating active) | — | bitfield | CONFIRMED |
 | 2015 / 2016 / 2017 | Zone setpoint / max / offset | — | ×0.1 °C | CONFIRMED |
 | **2090** | **Time-program state** (boiler reply to 2294, ~5 s later): **4 = manual (bit 2), 64 = auto / comfort phase (bit 6), 128 = auto / economy phase (bit 7)** (64 → 128 seen 3 s after the boiler clock was moved past the end of a comfort window). Whether it tracks the Zone 1 CH or the DHW program is still open | — | bitfield | CONFIRMED (link), CAND. (scope) |
 | 2100 | Fault code (0 = none, e.g. 142 = Dominus missing) | — | enum | CONFIRMED |
@@ -119,11 +119,11 @@ With R02 = −12, R03 = 20, R05 = 24, R04 = 35 and T_out 15.5 °C: U03 = 0 → *
 | 2012 | W | constant 0 | ? |
 | 2015–2017 | R/W | Zone 1 setpoint / max / offset (2017 = U03) | CONFIRMED |
 | 2020–2025 / 2030–2035 / 2040–2045 | R | Status, temperature and setpoint of zones 2 / 3 / 4 (Dominus map) | CONFIRMED |
-| 2095 | R/W | DHW setpoint | CONFIRMED |
+| 2095 | R/W | DHW setpoint (master; a change made on the panel reaches the Dominus as a boiler write) | CONFIRMED |
 | 2100 / 2101 | W | Fault code / reset | CONFIRMED |
 | 2210–2218 | R/W | Comfort/Eco heat & cool, humidity, **set-flow 2217**, offset 2218 | CONFIRMED |
 | 2220–2228 / 2230–2238 / 2240–2248 | R/W | Same for zones 2 / 3 / 4 | CONFIRMED |
-| 2310–2347 | R/W | Calendars 1–4 | CONFIRMED |
+| 2310–2347 | R/W | Calendars 1–4 (hi byte hour, lo byte minute; hour bits 0xE0 = "modified" flag set by the panel, mask it) | CONFIRMED |
 | 2410–2416 / 2420–2426 / 2430–2436 / 2440–2446 | R/W | Day → calendar, zones 1 / 2 / 3 / 4 | CONFIRMED |
 | 2490–2496 | R/W | Day → calendar, DHW | CONFIRMED |
 | 3002 / 3016 | W | Outdoor temperature / DHW temperature | CONFIRMED |

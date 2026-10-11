@@ -6,12 +6,23 @@
 # setpoints, weekly schedules, operating mode and boiler faults. See README.md for wiring, the register
 # map and setup.
 #
-# Project : jotuera.immergas-magis-pro-combo-dd-modbus  |  v1.3.0
+# Project : jotuera.immergas-magis-pro-combo-dd-modbus  |  v1.3.0-rp.1
 # Repo    : https://github.com/jotuera/immergas-magis-pro-combo-dd-modbus
 # License : MIT (c) 2026 JoTu
 # Tested  : Magis Combo V2 (MPROCOMBOV2). Other Immergas engines use different register maps - untested.
 #
 # Changelog:
+#   v1.3.0-rp.1 - (fork robpegurri/immergas-magis-pro-combo-dd-modbus; fixes proposed upstream)
+#            RS485 DE driven by the UART hardware (flow_control_pin): no flush()/busy-wait per reply.
+#            FIX: FC16 writes to the emulated Dominus were ACKed and dropped -> changes made on the physical
+#            panel (setpoints, schedules) were reverted. Schedule writes now update the HA time/select entities.
+#            Bus/HA arbitration (lww_guard.h): pending HA commands, settle window for lagging panel replies,
+#            panel warm-up after reconnect (its boot placeholders forced DHW 10 C / offset 0), range checks.
+#            Climates backed by the bus (components/bus_climate): state from the boiler, presets Comfort/Eco.
+#            Fault texts English/Italian (faults_i18n.h). Diagnostics: loop time, heap, uptime, WiFi, reset
+#            reason, CRC/TX counters, boiler clock drift, system flow/return. Labels as substitutions.
+#            Entity name prefix from the entity_prefix substitution (default "Immergas - ", unchanged).
+#            Requires lww_guard.h, faults_i18n.h and components/bus_climate next to this YAML.
 #   v1.3.0 - NEW: zone-panel settings the boiler READS from panel 0x29 are now controllable from HA (they were
 #            hard-coded): "Time programs Zone 1" (2294, Manual/Auto - Auto makes the boiler follow the CH weekly
 #            schedule, comfort/economy), "Room probe modulation" (6105, NO/YES), "Dew point correction" (6107).
@@ -73,7 +84,7 @@ substitutions:
   # v110: project metadata (author / GitHub repo). After publishing, set the correct repo URL.
   author: "JoTu"
   github_url: "https://github.com/jotuera/immergas-magis-pro-combo-dd-modbus"
-  project_version: "1.3.0"
+  project_version: "1.3.0-rp.1"
   # Labels shown in HA. Override them in your own YAML (substitutions win over the included file) to localise
   # the UI. Changing them renames the select options: update any HA automation that compares the select state.
   mode_0: "Standby"
@@ -2539,6 +2550,7 @@ sensor:
       return (float) id(dd_emu_33_ack_count);
   # Boiler clock (PDU 2300: bits 15-13 weekday 1 = Mon .. 7 = Sun, 12-8 hour, 7-0 minute) minus HA local time,
   # in minutes (+ ahead / - behind). The zone schedules run on the boiler clock. Resolution 1 min.
+  # REGISTER_MAP.md: the boiler clock does not follow DST - expect about -60 min while summer time is in force.
   - platform: template
     name: "${entity_prefix}Boiler clock drift"
     id: controller_clock_drift

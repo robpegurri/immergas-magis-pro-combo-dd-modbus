@@ -6,6 +6,18 @@ The boiler is the Modbus **master**; this device is a **slave** that answers as 
 
 > ⚠️ **Tested only on the Magis Combo V2 (`MPROCOMBOV2`).** The Dominus app supports many Immergas engines (Zeus, Star, VictrixMaior, …) with different register maps — this project targets **Magis Combo only**. Other models may partially work but are untested. Contributions welcome.
 
+## What's new in v1.3.0-rp.1 (fork)
+
+Fixes and features from [robpegurri/immergas-magis-pro-combo-dd-modbus](https://github.com/robpegurri/immergas-magis-pro-combo-dd-modbus), proposed upstream. Tested on Magis Combo V2 (board fw 5.03) with a **physical zone panel at `0x29` + emulated Dominus `0x33`**; zone 2/3 paths are untested.
+
+- **Changes made on the physical panel are no longer reverted.** The boiler propagates them by writing to the Dominus (FC16); the emulator ACKed and dropped those frames. Setpoint, offset, levels and schedules (calendar ranges, day → calendar for zones 1–3 and DHW) now follow the panel.
+- **No more bouncing values.** `lww_guard.h` arbitrates HA commands vs bus values: a command stays pending until the boiler confirms it, lagging panel replies are ignored for 6 s, out-of-range values are never adopted, and after the panel reconnects (power cut, Atom boot) its replies are ignored for 60 s — its boot placeholders used to force DHW to 10 °C and the offset to 0.
+- **RS485 DE in hardware** (`flow_control_pin`): no busy-wait per reply, loop time ~40 → ~20 ms, 0 CRC errors over 300k+ frames.
+- **Climates backed by the bus** (`components/bus_climate`): state is what the boiler reports, presets Comfort/Eco from 2010, action from the zone/DHW request bits. No local thermostat logic, no sync loop.
+- **Fault texts in English or Italian** (`Fault language` select); title and action kept when shortened to HA's 255-char limit.
+- **Diagnostics:** loop time, free heap, uptime, WiFi, reset reason, RS485 CRC errors, Dominus TX frames, boiler clock drift, Zone 1 heating request, system flow/return/ΔT.
+- **Labels as substitutions** (`mode_0..3`, `phase_*`, `cal_label`, `entity_prefix`) to localise the UI or drop the `Immergas - ` name prefix (HA already prefixes the device name); defaults unchanged. English logs; Zone 1 source defaults to *Panel*; web UI auth = digest.
+
 ## What's new in v1.3.0
 
 Zone-panel settings decoded by clicking through every menu of a physical zone panel while sniffing the bus. The boiler **reads** these from panel `0x29`, so an emulated panel can now set them from Home Assistant (until now they were hard-coded):
@@ -52,7 +64,7 @@ See [REGISTER_MAP.md](REGISTER_MAP.md) for the full list of registers the boiler
 
 - **M5Stack Atom Lite** (ESP32) + isolated **RS485** transceiver (e.g. M5 Isolated RS485 Unit / MAX3485).
 - Pins: **TX = GPIO26, RX = GPIO32, DE = GPIO23**.
-- Wiring: Immergas **D+ / D-** → RS485 **A / B** (swap if you get CRC errors).
+- Wiring: Immergas **D+ / D-** → RS485 **A / B** (swap if you get CRC errors). With the M5 **U094** Isolated RS485 Unit the working polarity is **D+ → B, D- → A**; the wrong one jams the whole bus (E121 panel offline, E189 interface board timeout).
 - Bus: **Modbus RTU, 9600 8E1** (even parity, 2-wire).
 - **A 120 Ω termination resistor across A/B is required** for the Atom to work standalone on the bus (the boiler provides bias; only termination is missing). The M5 Isolated RS485 kit includes one.
 
@@ -111,9 +123,20 @@ Edit the `substitutions:` block at the top of the YAML — these point to **your
 - `temp_src_*` / `hum_src_*` — Zone 1 temperature/humidity sources (slots 2–5; slot 1 "Panel" = live bus value).
 - `temp_src_z2_*` / `hum_src_z2_*`, `temp_src_z3_*` / `hum_src_z3_*` — Zone 2 / 3 sources.
 - `author`, `github_url`, `project_version` — project metadata (shown as device info).
+- `mode_0..3`, `phase_comfort/eco/manual`, `cal_label`, `entity_prefix` — UI labels and entity name prefix (`""` drops "Immergas - "; this changes the entity_ids). To localise without editing this file, include it from your own YAML and override them:
+
+```yaml
+packages:
+  immergas: !include immergas-magis-pro-combo-dd-modbus.yaml
+substitutions:
+  mode_0: "Off"
+  mode_3: "Inverno"
+  cal_label: "Calendario"
+```
 
 ## Setup
 
+1. Clone the repo (or copy `immergas-magis-pro-combo-dd-modbus.yaml`, `lww_guard.h`, `faults_i18n.h` and the `components/` folder into the same ESPHome config folder).
 1. `cp secrets.yaml.example secrets.yaml` and fill in WiFi + web UI credentials.
 2. Point the `substitutions:` sources to your HA sensors (see above).
 3. Flash `immergas-magis-pro-combo-dd-modbus.yaml` with ESPHome, wire the RS485 (with the **120 Ω** resistor), adopt in Home Assistant.
@@ -122,7 +145,7 @@ Edit the `substitutions:` block at the top of the YAML — these point to **your
 
 - **Shared calendars:** the 4 time-profiles are shared across all zones and DHW; only the day→calendar assignment is per-zone (confirmed from the Dominus app config).
 - **DHW is a single circuit** — one hot-water schedule for the whole house (no per-zone DHW).
-- **Boiler fault descriptions** are the official Immergas English texts (from the Dominus app labels), not machine translation.
+- **Boiler fault descriptions** are the official Immergas English and Italian texts (from the Dominus app labels), not machine translation.
 
 ## Disclaimer
 
