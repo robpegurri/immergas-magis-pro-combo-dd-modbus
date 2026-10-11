@@ -126,9 +126,11 @@ Edit the `substitutions:` block at the top of the YAML — these point to **your
 - `mode_0..3`, `phase_comfort/eco/manual`, `cal_label`, `entity_prefix` — UI labels and entity name prefix (`""` drops "Immergas - "; this changes the entity_ids). To localise without editing this file, include it from your own YAML and override them:
 
 ```yaml
+# my-boiler.yaml, with this repo cloned into the subfolder immergas-magis-pro-combo-dd-modbus/
 packages:
-  immergas: !include immergas-magis-pro-combo-dd-modbus.yaml
+  immergas: !include immergas-magis-pro-combo-dd-modbus/immergas-magis-pro-combo-dd-modbus.yaml
 substitutions:
+  repo_dir: "immergas-magis-pro-combo-dd-modbus"   # ESPHome resolves file paths from the config folder
   mode_0: "Off"
   mode_3: "Inverno"
   cal_label: "Calendario"

@@ -98,13 +98,17 @@ substitutions:
   # Prefix of every entity name. HA already shows entities as "<friendly_name> <name>": set it to "" to avoid
   # "Immergas" twice in names and entity_ids. Changing it changes the entity_ids (new entities in HA).
   entity_prefix: "Immergas - "
+  # Folder holding this YAML, lww_guard.h, faults_i18n.h and components/, relative to the ESPHome config folder.
+  # "." when this YAML is the device config; the subfolder name when it is included from your own YAML
+  # (ESPHome resolves these paths from the config folder, not from the included file).
+  repo_dir: "."
 
 esphome:
   name: immergas-dd-atom
   # Bus/HA arbitration for the registers the emulated Dominus serves (file next to this YAML).
   includes:
-    - lww_guard.h
-    - faults_i18n.h   # fault descriptions EN/IT (language chosen with the "Fault language" select)
+    - ${repo_dir}/lww_guard.h
+    - ${repo_dir}/faults_i18n.h   # fault descriptions EN/IT (language chosen with the "Fault language" select)
   friendly_name: Immergas D+D- Atom
   comment: "Immergas Dominus/Panel (D+/D-) emulator | author: ${author} | ${github_url}"
   project:
@@ -121,7 +125,7 @@ esphome:
 external_components:
   - source:
       type: local
-      path: components
+      path: ${repo_dir}/components
     components: [bus_climate]
 
 esp32:
