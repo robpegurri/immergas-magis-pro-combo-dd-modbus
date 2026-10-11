@@ -74,6 +74,16 @@ substitutions:
   author: "JoTu"
   github_url: "https://github.com/jotuera/immergas-magis-pro-combo-dd-modbus"
   project_version: "1.3.0"
+  # Labels shown in HA. Override them in your own YAML (substitutions win over the included file) to localise
+  # the UI. Changing them renames the select options: update any HA automation that compares the select state.
+  mode_0: "Standby"
+  mode_1: "Summer DHW"
+  mode_2: "Cooling"
+  mode_3: "Winter CH+DHW"
+  phase_comfort: "Comfort"
+  phase_eco: "Eco"
+  phase_manual: "Manual"
+  cal_label: "Calendar"
 
 esphome:
   name: immergas-dd-atom
@@ -138,7 +148,7 @@ time:
   - platform: homeassistant
     id: ha_time
 
-# v111: lokalny panel WWW (fallback gdy HA niedostepny; local:true = assety wbudowane, bez internetu).
+# v111: local web panel (fallback when HA is unavailable; local:true = embedded assets, no internet).
 web_server:
   port: 80
   version: 3
@@ -146,6 +156,7 @@ web_server:
   local: true
   # v112: protect the web UI (this device controls the boiler). Add web_username/web_password to secrets.yaml.
   auth:
+    type: digest   # ESPHome defaults to basic (password readable on the LAN) until 2027.1
     username: !secret web_username
     password: !secret web_password
 
@@ -290,11 +301,11 @@ globals:
   - id: temp_src_idx
     type: int
     restore_value: no
-    initial_value: '4'
+    initial_value: '1'
   - id: hum_src_idx
     type: int
     restore_value: no
-    initial_value: '4'
+    initial_value: '1'
 
   # v99: buffers for 4 temp/humidity sources of Zone 2 and 3 + active source index (1-4, restore:no -> after
   # reboot source 1). ha_room_temp/humidity_2/3_raw = selected (read by emu_zone_value for 0x2A/0x2B).
@@ -437,7 +448,7 @@ globals:
     initial_value: 'false'
 
   # v85: emulation flags for the Zone 2 (0x2A/42) and Zone 3 (0x2B/43) panels. NOTE: flags only -
-  # backend serwowania rejestrow 0x2A/0x2B jeszcze NIE istnieje (do zrobienia jak dla 0x29).
+  # the 0x2A/0x2B register serving backend does NOT exist yet (to do, like for 0x29).
   - id: dd_emulate_2a_diag
     type: bool
     restore_value: no
@@ -645,7 +656,7 @@ globals:
     initial_value: '-32768'
 
   # ------------------------------------------------------------
-  # Dodatkowe 0x29 - diagnostyczne/kandydaci
+  # Additional 0x29 - diagnostic/candidates
   # ------------------------------------------------------------
   - id: pdu_29_2006_raw
     type: int
@@ -653,7 +664,7 @@ globals:
     initial_value: '0'
 
   # 2300/2302/2303 look like the Dominus/Zone controller time/date.
-  # 2300 zostawiamy jako surowy licznik/scheduler, bez wymuszonej interpretacji.
+  # 2300 is kept as a raw counter/scheduler, no forced interpretation.
   - id: pdu_29_2300_raw
     type: int
     restore_value: no
@@ -714,7 +725,7 @@ globals:
     initial_value: '0'
 
   # ------------------------------------------------------------
-  # v21 emulator 0x29 / 41 - liczniki i status
+  # v21 emulator 0x29 / 41 - counters and status
   # ------------------------------------------------------------
   - id: dd_emu_29_read_count
     type: uint32_t
@@ -742,7 +753,7 @@ globals:
     initial_value: '0'
 
   # ------------------------------------------------------------
-  # v48 emulator Dominus 0x33 / 51 - liczniki i status
+  # v48 emulator Dominus 0x33 / 51 - counters and status
   # ------------------------------------------------------------
   - id: dd_emu_33_probe_count
     type: uint32_t
@@ -800,7 +811,7 @@ switch:
     turn_on_action:
       - lambda: |-
           id(dd_enable_replies) = true;
-          ESP_LOGW("dd_mode", "Polaczenie Modbus ON - pelny RX+TX na magistrali (dekodowanie + odpowiedzi).");
+          ESP_LOGW("dd_mode", "Modbus connection ON - full RX+TX on the bus (decoding + replies).");
     turn_off_action:
       - lambda: |-
           id(dd_enable_replies) = false;
@@ -817,7 +828,7 @@ switch:
           id(dd_last_29_read_ms) = 0;
           id(dd_last_2a_read_ms) = 0;
           id(dd_last_2b_read_ms) = 0;
-          ESP_LOGW("dd_mode", "Emuluj Modbus OFF (master) - RX+TX off + zgaszone Dominus i panele stref 1/2/3.");
+          ESP_LOGW("dd_mode", "Emulate Modbus OFF (master) - RX+TX off, Dominus and zone 1/2/3 panels disabled.");
 
   # v90: two separate, MUTUALLY EXCLUSIVE emulation switches (emulate EITHER the Dominus OR
   # a panel - never both, since one is physical). Enabling one disables the other. Default: Dominus ON,
@@ -835,7 +846,7 @@ switch:
           // v107 SAFETY: a physical device answers on 0x33 (connected) -> do NOT enable emulation
           // (two devices on the same address = bus collision).
           if (id(dd_last_33_read_ms) != 0 && (millis() - id(dd_last_33_read_ms)) < 30000) {
-            ESP_LOGE("dd_mode", "BEZPIECZNIK: fizyczny Dominus 0x33 wykryty (polaczono) - NIE wlaczam emulacji.");
+            ESP_LOGE("dd_mode", "SAFETY: physical Dominus 0x33 detected (connected) - NOT enabling emulation.");
             id(dd_emulate_33_diag) = false;
             id(dd_emulate_33_switch).publish_state(false);
             return;
@@ -844,12 +855,12 @@ switch:
           id(dd_emulate_29_diag) = false;
           id(dd_emulate_2a_diag) = false;
           id(dd_emulate_2b_diag) = false;
-          ESP_LOGW("dd_mode", "Emuluj DOMINUS 0x33 ON (panele OFF - wykluczenie)");
+          ESP_LOGW("dd_mode", "Emulate DOMINUS 0x33 ON (panels OFF - mutual exclusion)");
     turn_off_action:
       - lambda: |-
           id(dd_emulate_33_diag) = false;
           id(dd_last_33_read_ms) = 0;  // v107: reset -> "Connection" counts only physical replies from now on
-          ESP_LOGW("dd_mode", "Emuluj Dominus 0x33 OFF");
+          ESP_LOGW("dd_mode", "Emulate Dominus 0x33 OFF");
 
   - platform: template
     name: "Immergas - Emulate Panel Zone 1"
@@ -864,19 +875,19 @@ switch:
           // v107 SAFETY: a physical device answers on 0x29 (connected) -> do NOT enable emulation
           // (two devices on the same address = bus collision).
           if (id(dd_last_29_read_ms) != 0 && (millis() - id(dd_last_29_read_ms)) < 30000) {
-            ESP_LOGE("dd_mode", "BEZPIECZNIK: fizyczny panel Strefy 1 0x29 wykryty (polaczono) - NIE wlaczam emulacji.");
+            ESP_LOGE("dd_mode", "SAFETY: physical Zone 1 panel 0x29 detected (connected) - NOT enabling emulation.");
             id(dd_emulate_29_diag) = false;
             id(dd_emulate_29_switch).publish_state(false);
             return;
           }
           id(dd_emulate_29_diag) = true;
           id(dd_emulate_33_diag) = false;
-          ESP_LOGW("dd_mode", "Emuluj PANEL Strefy 1 0x29 ON (Dominus OFF - wykluczenie)");
+          ESP_LOGW("dd_mode", "Emulate Zone 1 PANEL 0x29 ON (Dominus OFF - mutual exclusion)");
     turn_off_action:
       - lambda: |-
           id(dd_emulate_29_diag) = false;
-          id(dd_last_29_read_ms) = 0;  // v107: reset polaczenia
-          ESP_LOGW("dd_mode", "Emuluj Panel Strefy 1 0x29 OFF");
+          id(dd_last_29_read_ms) = 0;  // v107: reset connection
+          ESP_LOGW("dd_mode", "Emulate Zone 1 Panel 0x29 OFF");
 
   - platform: template
     name: "Immergas - Emulate Panel Zone 2"
@@ -891,19 +902,19 @@ switch:
           // v107 SAFETY: a physical device answers on 0x2A (connected) -> do NOT enable emulation
           // (two devices on the same address = bus collision).
           if (id(dd_last_2a_read_ms) != 0 && (millis() - id(dd_last_2a_read_ms)) < 30000) {
-            ESP_LOGE("dd_mode", "BEZPIECZNIK: fizyczny panel Strefy 2 0x2A wykryty (polaczono) - NIE wlaczam emulacji.");
+            ESP_LOGE("dd_mode", "SAFETY: physical Zone 2 panel 0x2A detected (connected) - NOT enabling emulation.");
             id(dd_emulate_2a_diag) = false;
             id(dd_emulate_2a_switch).publish_state(false);
             return;
           }
           id(dd_emulate_2a_diag) = true;
           id(dd_emulate_33_diag) = false;  // v94: panel aktywny => Dominus zbedny
-          ESP_LOGW("dd_mode", "v85 EMULACJA panelu Strefy 2 addr 42/0x2A - flaga ON (backend serwowania 0x2A do zrobienia)");
+          ESP_LOGW("dd_mode", "v85 Zone 2 panel EMULATION addr 42/0x2A - flag ON");
     turn_off_action:
       - lambda: |-
           id(dd_emulate_2a_diag) = false;
-          id(dd_last_2a_read_ms) = 0;  // v107: reset polaczenia
-          ESP_LOGW("dd_mode", "v85 EMULACJA Strefy 2 addr 42 wylaczona");
+          id(dd_last_2a_read_ms) = 0;  // v107: reset connection
+          ESP_LOGW("dd_mode", "v85 Zone 2 EMULATION addr 42 disabled");
 
   - platform: template
     name: "Immergas - Emulate Panel Zone 3"
@@ -918,19 +929,19 @@ switch:
           // v107 SAFETY: a physical device answers on 0x2B (connected) -> do NOT enable emulation
           // (two devices on the same address = bus collision).
           if (id(dd_last_2b_read_ms) != 0 && (millis() - id(dd_last_2b_read_ms)) < 30000) {
-            ESP_LOGE("dd_mode", "BEZPIECZNIK: fizyczny panel Strefy 3 0x2B wykryty (polaczono) - NIE wlaczam emulacji.");
+            ESP_LOGE("dd_mode", "SAFETY: physical Zone 3 panel 0x2B detected (connected) - NOT enabling emulation.");
             id(dd_emulate_2b_diag) = false;
             id(dd_emulate_2b_switch).publish_state(false);
             return;
           }
           id(dd_emulate_2b_diag) = true;
           id(dd_emulate_33_diag) = false;  // v94: panel aktywny => Dominus zbedny
-          ESP_LOGW("dd_mode", "v85 EMULACJA panelu Strefy 3 addr 43/0x2B - flaga ON (backend serwowania 0x2B do zrobienia)");
+          ESP_LOGW("dd_mode", "v85 Zone 3 panel EMULATION addr 43/0x2B - flag ON");
     turn_off_action:
       - lambda: |-
           id(dd_emulate_2b_diag) = false;
-          id(dd_last_2b_read_ms) = 0;  // v107: reset polaczenia
-          ESP_LOGW("dd_mode", "v85 EMULACJA Strefy 3 addr 43 wylaczona");
+          id(dd_last_2b_read_ms) = 0;  // v107: reset connection
+          ESP_LOGW("dd_mode", "v85 Zone 3 EMULATION addr 43 disabled");
 
 
 
@@ -954,8 +965,8 @@ number:
       - lambda: |-
           lww::local_write(lww::DHW_SETPOINT, id(cwu_setpoint_raw), (int) round(x * 10.0f));
           id(cwu_setpoint_raw) = (int) round(x * 10.0f);
-          ESP_LOGW("dd_control", "v57 STEROWANIE CWU: zadana %.1f stopni raw=%d. Emulator zwraca to na READ 2095.", x, id(cwu_setpoint_raw));
-          id(cwu_setpoint_number).publish_state(x);  // v61: natychmiastowy update suwaka w HA
+          ESP_LOGW("dd_control", "v57 DHW CONTROL: requested %.1f degC raw=%d. Emulator returns it on READ 2095.", x, id(cwu_setpoint_raw));
+          id(cwu_setpoint_number).publish_state(x);  // v61: immediate slider update in HA
 
   # ------------------------------------------------------------
   # Zone 1 - active setpoint and U03/Offset
@@ -977,8 +988,8 @@ number:
           int raw = (int) round(x * 10.0f);
           lww::local_write(lww::ZONE1_SETPOINT, id(zone1_setpoint_raw), raw);
           id(zone1_setpoint_raw) = raw;
-          ESP_LOGW("dd_control", "v18 anchor-zone-write: zlecono zapis Strefy 1: zadana %.1f°C raw=%d. Czekam na naturalny ACK jako kotwicę.", x, raw);
-          id(zone1_setpoint_number).publish_state(x);  // v61: natychmiastowy update suwaka w HA
+          ESP_LOGW("dd_control", "v18 anchor-zone-write: Zone 1 write requested: setpoint %.1f°C raw=%d. Waiting for the natural ACK as anchor.", x, raw);
+          id(zone1_setpoint_number).publish_state(x);  // v61: immediate slider update in HA
 
   - platform: template
     name: "Immergas - U03 Heating offset (CH) zone 1"
@@ -997,8 +1008,8 @@ number:
           int raw = (int) round(x * 10.0f);
           lww::local_write(lww::ZONE1_OFFSET, id(zone1_offset_raw), raw);
           id(zone1_offset_raw) = raw;
-          ESP_LOGW("dd_control", "v18 anchor-zone-write: zlecono zapis U03 / Offset Flow: %.1f raw=%d. Czekam na naturalny ACK jako kotwicę.", x, raw);
-          id(zone1_offset_number).publish_state(x);  // v61: natychmiastowy update suwaka w HA
+          ESP_LOGW("dd_control", "v18 anchor-zone-write: U03 / Offset Flow write requested: %.1f raw=%d. Waiting for the natural ACK as anchor.", x, raw);
+          id(zone1_offset_number).publish_state(x);  // v61: immediate slider update in HA
 
   # v96: ZONE 2/3 - CH setpoint + offset. Placeholders (the boiler reads zones 2/3 only in a multi-zone
   # setup A13; the 0x2A/0x2B serving backend doesn't exist yet). Sliders set the global + sync the thermostat.
@@ -1018,7 +1029,7 @@ number:
     set_action:
       - lambda: |-
           id(zone2_setpoint_raw) = (int) round(x * 10.0f);
-          ESP_LOGW("dd_control", "v96 Strefa 2 zadana %.1f°C raw=%d (placeholder - backend 0x2A do zrobienia)", x, id(zone2_setpoint_raw));
+          ESP_LOGW("dd_control", "v96 Zone 2 setpoint %.1f°C raw=%d", x, id(zone2_setpoint_raw));
           id(zone2_setpoint_number).publish_state(x);
 
   - platform: template
@@ -1037,7 +1048,7 @@ number:
     set_action:
       - lambda: |-
           id(zone3_setpoint_raw) = (int) round(x * 10.0f);
-          ESP_LOGW("dd_control", "v96 Strefa 3 zadana %.1f°C raw=%d (placeholder - backend 0x2B do zrobienia)", x, id(zone3_setpoint_raw));
+          ESP_LOGW("dd_control", "v96 Zone 3 setpoint %.1f°C raw=%d", x, id(zone3_setpoint_raw));
           id(zone3_setpoint_number).publish_state(x);
 
   - platform: template
@@ -1056,7 +1067,7 @@ number:
     set_action:
       - lambda: |-
           id(zone2_offset_raw) = (int) round(x * 10.0f);
-          ESP_LOGW("dd_control", "v96 Offset c.o. Strefa 2 %.1f raw=%d (placeholder - backend 0x2A do zrobienia)", x, id(zone2_offset_raw));
+          ESP_LOGW("dd_control", "v96 Zone 2 CH offset %.1f raw=%d", x, id(zone2_offset_raw));
           id(zone2_offset_number).publish_state(x);
 
   - platform: template
@@ -1075,7 +1086,7 @@ number:
     set_action:
       - lambda: |-
           id(zone3_offset_raw) = (int) round(x * 10.0f);
-          ESP_LOGW("dd_control", "v96 Offset c.o. Strefa 3 %.1f raw=%d (placeholder - backend 0x2B do zrobienia)", x, id(zone3_offset_raw));
+          ESP_LOGW("dd_control", "v96 Zone 3 CH offset %.1f raw=%d", x, id(zone3_offset_raw));
           id(zone3_offset_number).publish_state(x);
 
   # ------------------------------------------------------------
@@ -1097,8 +1108,8 @@ number:
       - lambda: |-
           lww::local_write(lww::COMFORT_HEAT, id(dominus_comfort_heat_raw), (int) round(x * 10.0f));
           id(dominus_comfort_heat_raw) = (int) round(x * 10.0f);
-          ESP_LOGW("dd_control", "Zlecono Set Comfort Heat %.1f°C raw=%d", x, id(dominus_comfort_heat_raw));
-          id(number_dominus_comfort_heat).publish_state(x);  // v61: natychmiastowy update suwaka
+          ESP_LOGW("dd_control", "Requested Set Comfort Heat %.1f°C raw=%d", x, id(dominus_comfort_heat_raw));
+          id(number_dominus_comfort_heat).publish_state(x);  // v61: immediate slider update
 
   - platform: template
     name: "Immergas - Set Eco Heat Zone 1"
@@ -1116,8 +1127,8 @@ number:
       - lambda: |-
           lww::local_write(lww::ECO_HEAT, id(dominus_eco_heat_raw), (int) round(x * 10.0f));
           id(dominus_eco_heat_raw) = (int) round(x * 10.0f);
-          ESP_LOGW("dd_control", "Zlecono Set Eco Heat %.1f°C raw=%d", x, id(dominus_eco_heat_raw));
-          id(number_dominus_eco_heat).publish_state(x);  // v61: natychmiastowy update suwaka
+          ESP_LOGW("dd_control", "Requested Set Eco Heat %.1f°C raw=%d", x, id(dominus_eco_heat_raw));
+          id(number_dominus_eco_heat).publish_state(x);  // v61: immediate slider update
 
   - platform: template
     name: "Immergas - Set Comfort Cool Zone 1"
@@ -1135,8 +1146,8 @@ number:
       - lambda: |-
           lww::local_write(lww::COMFORT_COOL, id(dominus_comfort_cool_raw), (int) round(x * 10.0f));
           id(dominus_comfort_cool_raw) = (int) round(x * 10.0f);
-          ESP_LOGW("dd_control", "Zlecono Set Comfort Cool %.1f°C raw=%d", x, id(dominus_comfort_cool_raw));
-          id(number_dominus_comfort_cool).publish_state(x);  // v61: natychmiastowy update suwaka
+          ESP_LOGW("dd_control", "Requested Set Comfort Cool %.1f°C raw=%d", x, id(dominus_comfort_cool_raw));
+          id(number_dominus_comfort_cool).publish_state(x);  // v61: immediate slider update
 
   - platform: template
     name: "Immergas - Set Eco Cool Zone 1"
@@ -1154,8 +1165,8 @@ number:
       - lambda: |-
           lww::local_write(lww::ECO_COOL, id(dominus_eco_cool_raw), (int) round(x * 10.0f));
           id(dominus_eco_cool_raw) = (int) round(x * 10.0f);
-          ESP_LOGW("dd_control", "Zlecono Set Eco Cool %.1f°C raw=%d", x, id(dominus_eco_cool_raw));
-          id(number_dominus_eco_cool).publish_state(x);  // v61: natychmiastowy update suwaka
+          ESP_LOGW("dd_control", "Requested Set Eco Cool %.1f°C raw=%d", x, id(dominus_eco_cool_raw));
+          id(number_dominus_eco_cool).publish_state(x);  // v61: immediate slider update
 
   - platform: template
     name: "Immergas - U07 Humidity setting zone 1"
@@ -1173,8 +1184,8 @@ number:
       - lambda: |-
           lww::local_write(lww::HUMIDITY, id(dominus_humidity_raw), (int) round(x));
           id(dominus_humidity_raw) = (int) round(x);
-          ESP_LOGW("dd_control", "Zlecono Set Umidity %.0f%% raw=%d", x, id(dominus_humidity_raw));
-          id(number_dominus_humidity).publish_state(x);  // v61: natychmiastowy update suwaka
+          ESP_LOGW("dd_control", "Requested Set Humidity %.0f%% raw=%d", x, id(dominus_humidity_raw));
+          id(number_dominus_humidity).publish_state(x);  // v61: immediate slider update
 
   - platform: template
     name: "Immergas - Set Flow Zone 1"
@@ -1192,8 +1203,8 @@ number:
       - lambda: |-
           lww::local_write(lww::SET_FLOW, id(dominus_set_flow_raw), (int) round(x * 10.0f));
           id(dominus_set_flow_raw) = (int) round(x * 10.0f);
-          ESP_LOGW("dd_control", "Zlecono Set Flow %.1f°C raw=%d", x, id(dominus_set_flow_raw));
-          id(number_dominus_set_flow).publish_state(x);  // v61: natychmiastowy update suwaka
+          ESP_LOGW("dd_control", "Requested Set Flow %.1f°C raw=%d", x, id(dominus_set_flow_raw));
+          id(number_dominus_set_flow).publish_state(x);  // v61: immediate slider update
 
   # v102: "Manage Zone" settings - Zone 2 (0x2A)
 
@@ -1769,11 +1780,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Tuesday Zone 1"
     id: sel_weekday_2
@@ -1782,11 +1793,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Wednesday Zone 1"
     id: sel_weekday_3
@@ -1795,11 +1806,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Thursday Zone 1"
     id: sel_weekday_4
@@ -1808,11 +1819,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Friday Zone 1"
     id: sel_weekday_5
@@ -1821,11 +1832,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Saturday Zone 1"
     id: sel_weekday_6
@@ -1834,11 +1845,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Sunday Zone 1"
     id: sel_weekday_7
@@ -1847,13 +1858,13 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   # v70: shortcut - set the SAME profile for all 7 days at once (per-day still works independently).
-  # "(select)" = stan neutralny, nic nie robi.
+  # "(select)" = neutral state, does nothing.
   - platform: template
     name: "Immergas - CH Schedule all days Zone 1"
     id: sel_weekday_all
@@ -1862,10 +1873,10 @@ select:
     entity_category: config
     options:
       - "(select)"
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
     initial_option: "(select)"
     set_action:
       - lambda: |-
@@ -1877,7 +1888,7 @@ select:
           id(sel_weekday_5).make_call().set_option(x).perform();
           id(sel_weekday_6).make_call().set_option(x).perform();
           id(sel_weekday_7).make_call().set_option(x).perform();
-          ESP_LOGW("dd_chrono", "v70 Wszystkie dni Strefy 1 -> %s", x.c_str());
+          ESP_LOGW("dd_chrono", "v70 All Zone 1 days -> %s", x.c_str());
   # v106: assign a calendar to a day - Zone 2 (0x2A, reg. 2420-2426) and Zone 3 (0x2B, 2430-2436).
   - platform: template
     name: "Immergas - CH Schedule Monday Zone 2"
@@ -1887,11 +1898,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Tuesday Zone 2"
     id: sel_weekday_z2_2
@@ -1900,11 +1911,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Wednesday Zone 2"
     id: sel_weekday_z2_3
@@ -1913,11 +1924,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Thursday Zone 2"
     id: sel_weekday_z2_4
@@ -1926,11 +1937,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Friday Zone 2"
     id: sel_weekday_z2_5
@@ -1939,11 +1950,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Saturday Zone 2"
     id: sel_weekday_z2_6
@@ -1952,11 +1963,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Sunday Zone 2"
     id: sel_weekday_z2_7
@@ -1965,11 +1976,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule all days Zone 2"
     id: sel_weekday_z2_all
@@ -1978,10 +1989,10 @@ select:
     entity_category: config
     options:
       - "(select)"
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
     initial_option: "(select)"
     set_action:
       - lambda: |-
@@ -1993,7 +2004,7 @@ select:
           id(sel_weekday_z2_5).make_call().set_option(x).perform();
           id(sel_weekday_z2_6).make_call().set_option(x).perform();
           id(sel_weekday_z2_7).make_call().set_option(x).perform();
-          ESP_LOGW("dd_chrono", "v106 Wszystkie dni Strefy 2 -> %s", x.c_str());
+          ESP_LOGW("dd_chrono", "v106 All Zone 2 days -> %s", x.c_str());
   - platform: template
     name: "Immergas - CH Schedule Monday Zone 3"
     id: sel_weekday_z3_1
@@ -2002,11 +2013,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Tuesday Zone 3"
     id: sel_weekday_z3_2
@@ -2015,11 +2026,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Wednesday Zone 3"
     id: sel_weekday_z3_3
@@ -2028,11 +2039,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Thursday Zone 3"
     id: sel_weekday_z3_4
@@ -2041,11 +2052,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Friday Zone 3"
     id: sel_weekday_z3_5
@@ -2054,11 +2065,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Saturday Zone 3"
     id: sel_weekday_z3_6
@@ -2067,11 +2078,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule Sunday Zone 3"
     id: sel_weekday_z3_7
@@ -2080,11 +2091,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - CH Schedule all days Zone 3"
     id: sel_weekday_z3_all
@@ -2093,10 +2104,10 @@ select:
     entity_category: config
     options:
       - "(select)"
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
     initial_option: "(select)"
     set_action:
       - lambda: |-
@@ -2108,7 +2119,7 @@ select:
           id(sel_weekday_z3_5).make_call().set_option(x).perform();
           id(sel_weekday_z3_6).make_call().set_option(x).perform();
           id(sel_weekday_z3_7).make_call().set_option(x).perform();
-          ESP_LOGW("dd_chrono", "v106 Wszystkie dni Strefy 3 -> %s", x.c_str());
+          ESP_LOGW("dd_chrono", "v106 All Zone 3 days -> %s", x.c_str());
   # v83: DHW schedule (water heating) - assign a Cal 1-4 profile to a weekday
   # (PDU 2490-2496). The SAME cal1-4 profiles as Zone 1 (times 2310-2347), own day assignment.
   - platform: template
@@ -2119,11 +2130,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - DHW Schedule Tuesday"
     id: sel_dhw_weekday_2
@@ -2132,11 +2143,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - DHW Schedule Wednesday"
     id: sel_dhw_weekday_3
@@ -2145,11 +2156,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - DHW Schedule Thursday"
     id: sel_dhw_weekday_4
@@ -2158,11 +2169,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - DHW Schedule Friday"
     id: sel_dhw_weekday_5
@@ -2171,11 +2182,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - DHW Schedule Saturday"
     id: sel_dhw_weekday_6
@@ -2184,11 +2195,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   - platform: template
     name: "Immergas - DHW Schedule Sunday"
     id: sel_dhw_weekday_7
@@ -2197,11 +2208,11 @@ select:
     restore_value: true
     entity_category: config
     options:
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
-    initial_option: "Calendar 1"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
+    initial_option: "${cal_label} 1"
   # v83: shortcut - set the same profile for all 7 DHW days.
   - platform: template
     name: "Immergas - DHW Schedule all days"
@@ -2211,10 +2222,10 @@ select:
     entity_category: config
     options:
       - "(select)"
-      - "Calendar 1"
-      - "Calendar 2"
-      - "Calendar 3"
-      - "Calendar 4"
+      - "${cal_label} 1"
+      - "${cal_label} 2"
+      - "${cal_label} 3"
+      - "${cal_label} 4"
     initial_option: "(select)"
     set_action:
       - lambda: |-
@@ -2226,8 +2237,9 @@ select:
           id(sel_dhw_weekday_5).make_call().set_option(x).perform();
           id(sel_dhw_weekday_6).make_call().set_option(x).perform();
           id(sel_dhw_weekday_7).make_call().set_option(x).perform();
-          ESP_LOGW("dd_chrono", "v83 CWU: wszystkie dni -> %s", x.c_str());
-  # v100: 5 sources for Zone 1 (Panel/Basement/Ground floor/Upper floor/Whole house), default Upper floor (idx 4).
+          ESP_LOGW("dd_chrono", "v83 DHW: all days -> %s", x.c_str());
+  # v100: 5 sources for Zone 1 (Panel/Basement/Ground floor/Upper floor/Whole house). Default Panel (idx 1): the
+  # HA sources are placeholders until you set your own entity_id, and a missing entity left a stale 21.0 C.
   - platform: template
     name: "Immergas - Temperature source Zone 1"
     id: temp_source_select
@@ -2240,7 +2252,7 @@ select:
       - "Ground floor"
       - "Upper floor"
       - "Whole house"
-    initial_option: "Upper floor"
+    initial_option: "Panel"
     set_action:
       - lambda: |-
           int idx = 4;
@@ -2256,7 +2268,7 @@ select:
             case 4: id(ha_room_temp_raw) = id(ha_temp_raw_4); break;
             case 5: id(ha_room_temp_raw) = id(ha_temp_raw_5); break;
           }
-          ESP_LOGW("dd_control", "v100 Zrodlo TEMP Strefy 1 -> %d (%s)", idx, x.c_str());
+          ESP_LOGW("dd_control", "v100 Zone 1 TEMP source -> %d (%s)", idx, x.c_str());
   - platform: template
     name: "Immergas - Humidity source Zone 1"
     id: hum_source_select
@@ -2269,7 +2281,7 @@ select:
       - "Ground floor"
       - "Upper floor"
       - "Whole house"
-    initial_option: "Upper floor"
+    initial_option: "Panel"
     set_action:
       - lambda: |-
           int idx = 4;
@@ -2285,7 +2297,7 @@ select:
             case 4: id(ha_room_humidity_raw) = id(ha_hum_raw_4); break;
             case 5: id(ha_room_humidity_raw) = id(ha_hum_raw_5); break;
           }
-          ESP_LOGW("dd_control", "v100 Zrodlo WILG Strefy 1 -> %d (%s)", idx, x.c_str());
+          ESP_LOGW("dd_control", "v100 Zone 1 HUMIDITY source -> %d (%s)", idx, x.c_str());
 
   # v100: switchable 5-option temp/humidity sources for Zone 2 and 3 (Panel/Basement/Ground floor/Upper floor/Whole house), default Panel.
   - platform: template
@@ -2316,7 +2328,7 @@ select:
             case 4: id(ha_room_temp_2_raw) = id(ha_temp_raw_z2_4); break;
             case 5: id(ha_room_temp_2_raw) = id(ha_temp_raw_z2_5); break;
           }
-          ESP_LOGW("dd_control", "v100 Zrodlo TEMP Strefy 2 -> %d (%s)", idx, x.c_str());
+          ESP_LOGW("dd_control", "v100 Zone 2 TEMP source -> %d (%s)", idx, x.c_str());
   - platform: template
     name: "Immergas - Temperature source Zone 3"
     id: temp_source_z3_select
@@ -2345,7 +2357,7 @@ select:
             case 4: id(ha_room_temp_3_raw) = id(ha_temp_raw_z3_4); break;
             case 5: id(ha_room_temp_3_raw) = id(ha_temp_raw_z3_5); break;
           }
-          ESP_LOGW("dd_control", "v100 Zrodlo TEMP Strefy 3 -> %d (%s)", idx, x.c_str());
+          ESP_LOGW("dd_control", "v100 Zone 3 TEMP source -> %d (%s)", idx, x.c_str());
   - platform: template
     name: "Immergas - Humidity source Zone 2"
     id: hum_source_z2_select
@@ -2374,7 +2386,7 @@ select:
             case 4: id(ha_room_humidity_2_raw) = id(ha_hum_raw_z2_4); break;
             case 5: id(ha_room_humidity_2_raw) = id(ha_hum_raw_z2_5); break;
           }
-          ESP_LOGW("dd_control", "v100 Zrodlo WILG Strefy 2 -> %d (%s)", idx, x.c_str());
+          ESP_LOGW("dd_control", "v100 Zone 2 HUMIDITY source -> %d (%s)", idx, x.c_str());
   - platform: template
     name: "Immergas - Humidity source Zone 3"
     id: hum_source_z3_select
@@ -2403,38 +2415,38 @@ select:
             case 4: id(ha_room_humidity_3_raw) = id(ha_hum_raw_z3_4); break;
             case 5: id(ha_room_humidity_3_raw) = id(ha_hum_raw_z3_5); break;
           }
-          ESP_LOGW("dd_control", "v100 Zrodlo WILG Strefy 3 -> %d (%s)", idx, x.c_str());
+          ESP_LOGW("dd_control", "v100 Zone 3 HUMIDITY source -> %d (%s)", idx, x.c_str());
 
   - platform: template
     name: "Immergas - System operating mode"
     id: operating_mode_select
     icon: mdi:state-machine
-    # v60: optimistic MUSI byc false bo jest lambda (ESPHome: "optimistic cannot be used with
-    # lambda"). Instant-feedback robimy przez publish_state(x) w set_action ponizej.
+    # v60: optimistic MUST be false because there is a lambda (ESPHome: "optimistic cannot be used with
+    # lambda"). Instant feedback is done via publish_state(x) in set_action below.
     optimistic: false
     options:
-      - "Standby"
-      - "Summer DHW"
-      - "Cooling"
-      - "Winter CH+DHW"
+      - "${mode_0}"
+      - "${mode_1}"
+      - "${mode_2}"
+      - "${mode_3}"
     lambda: |-
       switch (id(operating_mode_raw)) {
-        case 0: return std::string("Standby");
-        case 1: return std::string("Summer DHW");
-        case 2: return std::string("Cooling");
-        case 3: return std::string("Winter CH+DHW");
-        default: return std::string("Winter CH+DHW");
+        case 0: return std::string("${mode_0}");
+        case 1: return std::string("${mode_1}");
+        case 2: return std::string("${mode_2}");
+        case 3: return std::string("${mode_3}");
+        default: return std::string("${mode_3}");
       }
     set_action:
       - lambda: |-
           int mode = 3;
-          if (x == "Standby") {
+          if (x == "${mode_0}") {
             mode = 0;
-          } else if (x == "Summer DHW") {
+          } else if (x == "${mode_1}") {
             mode = 1;
-          } else if (x == "Cooling") {
+          } else if (x == "${mode_2}") {
             mode = 2;
-          } else if (x == "Winter CH+DHW") {
+          } else if (x == "${mode_3}") {
             mode = 3;
           }
 
@@ -2446,10 +2458,10 @@ select:
           id(operating_mode_raw) = mode;
           id(operating_mode_target_raw) = mode;
 
-          // v59/v60: natychmiastowe odswiezenie w HA (bez czekania na poll) - select + sensor.
+          // v59/v60: immediate refresh in HA (no waiting for the poll) - select + sensor.
           id(operating_mode_select).publish_state(x);
 
-          ESP_LOGW("dd_control", "v59 STEROWANIE TRYBEM: zadany %s -> %d. Emulator zwraca to na READ 2000, piec zastosuje (~1.85s).", x.c_str(), mode);
+          ESP_LOGW("dd_control", "v59 MODE CONTROL: requested %s -> %d. Emulator returns it on READ 2000, boiler will apply it (~1.85s).", x.c_str(), mode);
 
 # v1.2.0: reset the sniffer map = new baseline (e.g. before clicking through panel options).
 button:
@@ -2787,7 +2799,7 @@ sensor:
   # ------------------------------------------------------------
   # v63: 3 temp sources. Each updates its buffer; if currently selected -> also the output.
   # v101: source 1 "Panel" (Zone 1 temp) = real PDU 2005 of the physical panel 0x29
-  # (handle_pdu -> ha_temp_raw_1), nie z HA.
+  # (handle_pdu -> ha_temp_raw_1), not from HA.
   - platform: homeassistant
     id: ha_temp_in_2
     entity_id: ${temp_src_2}
@@ -2823,7 +2835,7 @@ sensor:
 
   # v64/v100: 5 humidity sources (same as above).
   # v101: source 1 "Panel" (Zone 1 humidity) = real PDU 2006 of the physical panel 0x29
-  # (handle_pdu -> ha_hum_raw_1), nie z HA.
+  # (handle_pdu -> ha_hum_raw_1), not from HA.
   - platform: homeassistant
     id: ha_hum_in_2
     entity_id: ${hum_src_2}
@@ -3199,7 +3211,7 @@ text_sensor:
     update_interval: never
 
 
-  # v110: metadane projektu (autor + repozytorium GitHub) - widoczne jako encje diagnostyczne urzadzenia.
+  # v110: project metadata (author + GitHub repo) - shown as device diagnostic entities.
   - platform: template
     name: "Immergas - Author"
     id: meta_author
@@ -3248,9 +3260,9 @@ text_sensor:
     update_interval: 10s
     lambda: |-
       int lb = id(dd_zone1_status_raw) & 0xFF;
-      if (lb & 0x40) return std::string("Comfort");
-      if (lb & 0x80) return std::string("Eco");
-      if (lb & 0x04) return std::string("Manual");
+      if (lb & 0x40) return std::string("${phase_comfort}");
+      if (lb & 0x80) return std::string("${phase_eco}");
+      if (lb & 0x04) return std::string("${phase_manual}");
       return std::string("—");
 
   # v96: Zone 2 operating phase (Comfort/Eco/Manual) from dd_zone2_status_raw. Placeholder - the boiler writes
@@ -3263,9 +3275,9 @@ text_sensor:
     lambda: |-
       if (!id(dd_emulate_2a_diag)) return std::string("—");
       int lb = id(dd_zone2_status_raw) & 0xFF;
-      if (lb & 0x40) return std::string("Comfort");
-      if (lb & 0x80) return std::string("Eco");
-      if (lb & 0x04) return std::string("Manual");
+      if (lb & 0x40) return std::string("${phase_comfort}");
+      if (lb & 0x80) return std::string("${phase_eco}");
+      if (lb & 0x04) return std::string("${phase_manual}");
       return std::string("—");
 
   # v96: Zone 3 operating phase (Comfort/Eco/Manual) from dd_zone3_status_raw. Placeholder like Zone 2.
@@ -3277,9 +3289,9 @@ text_sensor:
     lambda: |-
       if (!id(dd_emulate_2b_diag)) return std::string("—");
       int lb = id(dd_zone3_status_raw) & 0xFF;
-      if (lb & 0x40) return std::string("Comfort");
-      if (lb & 0x80) return std::string("Eco");
-      if (lb & 0x04) return std::string("Manual");
+      if (lb & 0x40) return std::string("${phase_comfort}");
+      if (lb & 0x80) return std::string("${phase_eco}");
+      if (lb & 0x04) return std::string("${phase_manual}");
       return std::string("—");
 
 
@@ -3472,9 +3484,9 @@ climate:
     set_mode_action:
       - lambda: |-
           // OFF = Summer (DHW only): heating/cooling off, hot water kept. Standby stays on the mode select.
-          const char *opt = "Summer DHW";
-          if (x == climate::CLIMATE_MODE_HEAT) opt = "Winter CH+DHW";
-          else if (x == climate::CLIMATE_MODE_COOL) opt = "Cooling";
+          const char *opt = "${mode_1}";
+          if (x == climate::CLIMATE_MODE_HEAT) opt = "${mode_3}";
+          else if (x == climate::CLIMATE_MODE_COOL) opt = "${mode_2}";
           id(operating_mode_select).make_call().set_option(opt).perform();
 
   - platform: bus_climate
@@ -3782,9 +3794,9 @@ interval:
           };
 
           // v70: Zone 1 schedule (chrono) controlled from HA (instead of constants from a dump).
-          // 2310-2347 = 4 profile dzienne cal1-4 (po 4 fascia on/off), 2410-2416 = profil
+          // 2310-2347 = 4 daily profiles cal1-4 (4 on/off ranges each), 2410-2416 = profile
           // per weekday. Register time: hi byte = hour, lo byte = minute
-          // (06:00 -> 6*256 = 1536). Serwowane identycznie dla 0x33 i 0x29 z tych encji.
+          // (06:00 -> 6*256 = 1536). Served identically to 0x33 and 0x29 from these entities.
           auto chrono_reg_value = [&](uint16_t reg) -> int {
             switch (reg) {
               case 2310: return id(dt_cal1_f1_on).hour * 256 + id(dt_cal1_f1_on).minute;
@@ -3858,10 +3870,10 @@ interval:
               case REG_MODE: return id(operating_mode_raw);
               case 2001: return 8;
               case 2002: return 0;
-              case 2005: return id(ha_room_temp_raw);       // v62: temp pomieszczenia z HA
+              case 2005: return id(ha_room_temp_raw);       // v62: room temp from HA
               case 2006: return id(ha_room_humidity_raw);   // v62: humidity from HA
               case REG_ZONE1_STATUS: return 4;
-              case REG_ZONE1_TEMP_OLD: return id(ha_room_temp_raw);  // v62: temp z HA (kopia 2011)
+              case REG_ZONE1_TEMP_OLD: return id(ha_room_temp_raw);  // v62: temp from HA (copy of 2011)
               case 2012: return 0;
               case REG_ZONE1_SETPOINT: return id(zone1_setpoint_raw);
               case REG_ZONE1_MAX: return 300;
@@ -3914,7 +3926,7 @@ interval:
               case REG_ECO_COOL: return id(dominus_eco_cool_raw);
               case REG_OUTSIDE_TEMP: return id(outside_temp_raw) > 0 ? id(outside_temp_raw) : 167;
               case 3003: return 0;
-              case REG_ZONE1_TEMP_COPY: return id(ha_room_temp_raw);  // v62: temp z HA (kopia 3009)
+              case REG_ZONE1_TEMP_COPY: return id(ha_room_temp_raw);  // v62: temp from HA (copy of 3009)
               case 3010: return id(ha_room_humidity_raw);             // v62: humidity from HA (copy of 3010)
               case 3011: return id(pdu_29_3011_raw) != 0 ? id(pdu_29_3011_raw) : 349;
               case 3012: return id(pdu_29_3012_raw) != 0 ? id(pdu_29_3012_raw) : 349;
@@ -3956,7 +3968,7 @@ interval:
               case REG_SET_FLOW: return id(dominus_set_flow_raw);
               // v61 anti-flicker: the boiler reads 2214 count5 (2214..2218), and 2218 is a COPY of the offset
               // of Zone 1 (a real Dominus returns the same as 2017 there, e.g. -10). Previously 0 ->
-              // niespojnosc 2017 vs 2218 = "miganie o jeden". Teraz spojnie z 2017.
+              // mismatch 2017 vs 2218 = "off-by-one flicker". Now consistent with 2017.
               case REG_ZONE1_MAX_COPY: return id(zone1_offset_raw);
               case REG_ZONE1_OFFSET_COPY: return id(zone1_offset_raw);
 
@@ -4012,7 +4024,7 @@ interval:
             // The emulator NEVER transmits on 0x1E (RX/monitor only). Hard guard: if some future
             // path tries to TX on 0x1E -> we block it and log an error, to avoid colliding with the machine room.
             if (!data.empty() && data[0] == 0x1E) {
-              ESP_LOGE("dd_rs485", "BEZPIECZNIK v96: zablokowano TX na 0x1E (maszynownia) label=%s - emulator nie nadaje na adres 30", label);
+              ESP_LOGE("dd_rs485", "SAFETY v96: blocked TX to 0x1E (machine room) label=%s - emulator never transmits to address 30", label);
               return;
             }
             // DE handled by the UART hardware (flow_control_pin): queue the frame and return, no busy-wait.
@@ -4025,7 +4037,7 @@ interval:
 
           auto send_emu29_read03_response = [&](uint16_t start, uint16_t count) {
             if (count == 0 || count > 40) {
-              ESP_LOGW("dd_emu_29", "Nie odpowiadam READ03 0x29 start=%u count=%u - count poza limitem", start, count);
+              ESP_LOGW("dd_emu_29", "Not replying to READ03 0x29 start=%u count=%u - count out of range", start, count);
               return;
             }
 
@@ -4042,9 +4054,9 @@ interval:
               // v29 diagnostic override: for the most important presence query
               // we return exactly the values from a real panel captured in the log:
               // req 29 03 07 D5 00 02 D2 AF -> resp 29 03 04 00 E9 00 3C 83 D4
-              // czyli 2005=233 (23.3°C), 2006=60 (%).
+              // i.e. 2005=233 (23.3°C), 2006=60 (%).
               if (start == 2005 && count == 2) {
-                if (reg == 2005) value = id(ha_room_temp_raw);      // v62: temp pomieszczenia z HA
+                if (reg == 2005) value = id(ha_room_temp_raw);      // v62: room temp from HA
                 if (reg == 2006) value = id(ha_room_humidity_raw);  // v62: humidity from HA
               }
               uint16_t uvalue = (uint16_t) value;
@@ -4061,7 +4073,7 @@ interval:
             rs485_send_v48(resp, "emu29_read03_resp");
             id(dd_emu_29_read_count)++;
             id(dd_emu_29_last_ms) = millis();
-            id(dd_last_29_read_ms) = millis();  // v93: online = ODPOWIEDZIELISMY jako panel 0x29
+            id(dd_last_29_read_ms) = millis();  // v93: online = WE REPLIED as panel 0x29
 
             ESP_LOGW("dd_emu_29", "v48 immediate exact-real-2005 emu READ03 resp addr=0x29 start=%u count=%u frame=%s", start, count, hex_frame(resp).c_str());
           };
@@ -4072,7 +4084,7 @@ interval:
             static int last_value = 0;
             uint32_t now_ack = millis();
             if (last_reg == reg && last_value == value && (now_ack - last_ack_ms) < 100) {
-              ESP_LOGD("dd_emu_29", "Pomijam prawdopodobne echo własnego WRITE06 ACK reg=%u value=%d", reg, value);
+              ESP_LOGD("dd_emu_29", "Skipping probable echo of own WRITE06 ACK reg=%u value=%d", reg, value);
               return;
             }
             last_ack_ms = now_ack;
@@ -4102,7 +4114,7 @@ interval:
           auto send_emu_zone_read03 = [&](uint8_t zaddr, uint16_t start, uint16_t count,
                                           int temp_raw, int hum_raw, int sp_raw, int off_raw) {
             if (count == 0 || count > 40) {
-              ESP_LOGW("dd_emu_z", "Nie odpowiadam READ03 0x%02X start=%u count=%u - count poza limitem", zaddr, start, count);
+              ESP_LOGW("dd_emu_z", "Not replying to READ03 0x%02X start=%u count=%u - count out of range", zaddr, start, count);
               return;
             }
             std::vector<uint8_t> resp;
@@ -4151,12 +4163,12 @@ interval:
             // The emulator NEVER transmits on 0x1E (RX/monitor only). Hard guard: if some future
             // path tries to TX on 0x1E -> we block it and log an error, to avoid colliding with the machine room.
             if (!data.empty() && data[0] == 0x1E) {
-              ESP_LOGE("dd_rs485", "BEZPIECZNIK v96: zablokowano TX na 0x1E (maszynownia) label=%s - emulator nie nadaje na adres 30", label);
+              ESP_LOGE("dd_rs485", "SAFETY v96: blocked TX to 0x1E (machine room) label=%s - emulator never transmits to address 30", label);
               return;
             }
-            // v55 IMMEDIATE PROVEN TX: kopia 1:1 udowodnionej rutyny rs485_send_v48 (0x29) oraz
+            // v55 IMMEDIATE PROVEN TX: 1:1 copy of the proven rs485_send_v48 routine (0x29) and
             // the manual 0x33 button - these DO transmit visibly (sniffer a11798 catches 29 03 04 00 E9
-            // oraz reczny 33 10 ... 14 97). KLUCZ: ZADNEGO delay()/busy-wait PRZED TX.
+            // and the manual 33 10 ... 14 97). KEY: NO delay()/busy-wait BEFORE TX.
             // v53 (delay(22) yield) and v54 (delayMicroseconds(22000)) had a pre-delay and the frames
             // never reached the bus -> the pre-delay broke transmission. Panel 0x29 replies IMMEDIATELY
             // and the boiler accepts it - so 0x33 also replies immediately.
@@ -4199,7 +4211,7 @@ interval:
             resp.push_back((crc >> 8) & 0xFF);
 
             rs485_send_33_v50(resp, "emu33_read_resp");
-            id(dd_last_33_read_ms) = millis();  // v93: online = ODPOWIEDZIELISMY jako Dominus 0x33
+            id(dd_last_33_read_ms) = millis();  // v93: online = WE REPLIED as Dominus 0x33
           };
 
           auto send_emu33_write06_ack = [&](const std::vector<uint8_t> &req, uint16_t reg, int value) {
@@ -4208,7 +4220,7 @@ interval:
             static int last_value = 0;
             uint32_t now_ack = millis();
             if (last_reg == reg && last_value == value && (now_ack - last_ack_ms) < 120) {
-              ESP_LOGD("dd_emu_33", "v51 skip echo własnego/duplikatu WRITE06 ACK reg=%u value=%d", reg, value);
+              ESP_LOGD("dd_emu_33", "v51 skip echo of own/duplicate WRITE06 ACK reg=%u value=%d", reg, value);
               return;
             }
             last_ack_ms = now_ack;
@@ -4497,7 +4509,7 @@ interval:
                     fw[i] = value;
                     int m = i / 2;
                     if (fw[m * 2] >= 0 && fw[m * 2 + 1] >= 0) {
-                      char vb[20];
+                      char vb[32];  // 4 x (up to 11 chars for an int) do not fit 20 -> -Wformat-truncation
                       snprintf(vb, sizeof(vb), "%02d.%02d.%02d.%02d", fw[m * 2] / 100, fw[m * 2] % 100, fw[m * 2 + 1] / 100, fw[m * 2 + 1] % 100);
                       text_sensor::TextSensor *ts[4] = {id(pc_fw_odu_main), id(pc_fw_inv_fw), id(pc_fw_inv_mem), id(pc_fw_interface)};
                       ts[m]->publish_state(vb);
@@ -4561,7 +4573,7 @@ interval:
             }
             // ------------------------------------------------------------
             // 0x1E - technical / different register spaces
-            // Ten adres ma inne znaczenie dla func 0x03, 0x04, 0x06 i 0x10.
+            // This address has a different meaning for func 0x03, 0x04, 0x06 and 0x10.
             // We don't publish it to HA entities, to avoid mixing values in one sensor.
             // Kept only in logs and discovery.
             // ------------------------------------------------------------
@@ -4589,7 +4601,7 @@ interval:
             }
 
             // ------------------------------------------------------------
-            // Tryb pracy systemu
+            // System operating mode
             // PDU 2000 / 0x07D0:
             // 0 = Standby, 1 = Summer/DHW, 2 = Cooling, 3 = Winter/CH+DHW
             // 0x33 usually changes first, 0x29 is the copy/execution.
@@ -4602,13 +4614,13 @@ interval:
                 id(operating_mode_raw) = value;
               }
 
-              const char *mode_name = "Nieznany";
-              if (value == 0) mode_name = "Standby";
-              else if (value == 1) mode_name = "Summer DHW";
-              else if (value == 2) mode_name = "Cooling";
-              else if (value == 3) mode_name = "Winter CH+DHW";
+              const char *mode_name = "Unknown";
+              if (value == 0) mode_name = "${mode_0}";
+              else if (value == 1) mode_name = "${mode_1}";
+              else if (value == 2) mode_name = "${mode_2}";
+              else if (value == 3) mode_name = "${mode_3}";
 
-              ESP_LOGI("dd_value", "%s Tryb pracy addr=0x%02X PDU 2000 = %d / %s", source, addr, value, mode_name);
+              ESP_LOGI("dd_value", "%s Operating mode addr=0x%02X PDU 2000 = %d / %s", source, addr, value, mode_name);
               return;
             }
 
@@ -4618,7 +4630,7 @@ interval:
             // ------------------------------------------------------------
             if (addr == 0x29 && (reg == 2005 || reg == REG_ZONE1_TEMP_COPY)) {
               if (!valid_temp_x10(value)) {
-                ESP_LOGW("dd_value", "%s addr=0x29 Zone1 temp PDU %u INVALID = %d / 0x%04X - ignoruję", source, reg, value, (uint16_t) value);
+                ESP_LOGW("dd_value", "%s addr=0x29 Zone1 temp PDU %u INVALID = %d / 0x%04X - ignored", source, reg, value, (uint16_t) value);
                 return;
               }
               id(zone1_temp_raw) = value;
@@ -4749,18 +4761,18 @@ interval:
               id(sensor_zone1_humidity).publish_state(value);
               id(ha_hum_raw_1) = value;  // v101: "Panel" source = real PDU 2006 of the physical panel 0x29
               if (id(hum_src_idx) == 1) id(ha_room_humidity_raw) = value;
-              ESP_LOGI("dd_value", "%s Wilgotność Strefy 1 PDU 2006 = %d%%", source, value);
+              ESP_LOGI("dd_value", "%s Zone 1 humidity PDU 2006 = %d%%", source, value);
               return;
             }
             if (addr == 0x29 && reg == 3010) {
               // v77: 3010 = copy of Zone 1 humidity; we update the main sensor only.
               if (value > 0 && value <= 100) id(sensor_zone1_humidity).publish_state(value);
-              ESP_LOGI("dd_value", "%s Wilgotność Strefy 1 PDU 3010 = %d%%", source, value);
+              ESP_LOGI("dd_value", "%s Zone 1 humidity PDU 3010 = %d%%", source, value);
               return;
             }
             if (addr == 0x29 && reg == 2300) {
               id(pdu_29_2300_raw) = value;
-              ESP_LOGD("dd_value", "%s Czas/licznik sterownika raw PDU 2300 = %d / 0x%04X", source, value, (uint16_t) value);
+              ESP_LOGD("dd_value", "%s Controller time/counter raw PDU 2300 = %d / 0x%04X", source, value, (uint16_t) value);
               return;
             }
             if (addr == 0x29 && reg == 2302) {
@@ -4768,12 +4780,12 @@ interval:
               uint16_t raw = (uint16_t) value;
               int day = (raw >> 8) & 0xFF;
               int month = raw & 0xFF;
-              ESP_LOGI("dd_value", "%s Data sterownika PDU 2302 = %d / 0x%04X -> %02d.%02d", source, value, (uint16_t) value, day, month);
+              ESP_LOGI("dd_value", "%s Controller date PDU 2302 = %d / 0x%04X -> %02d.%02d", source, value, (uint16_t) value, day, month);
               return;
             }
             if (addr == 0x29 && reg == 2303) {
               id(pdu_29_2303_raw) = value;
-              ESP_LOGI("dd_value", "%s Rok sterownika PDU 2303 = %d", source, value);
+              ESP_LOGI("dd_value", "%s Controller year PDU 2303 = %d", source, value);
               return;
             }
             if (addr == 0x29 && reg == REG_DHW_TEMP_COPY_2293) { id(pdu_29_2293_raw) = value; return; }
@@ -4899,7 +4911,7 @@ interval:
 
             // v93: "online" counted from REPLIES (the device answers), NOT from the boiler's query.
             // Our emulation -> set in send_emu29/33_read_response; a physical device ->
-            // w galezi read-response ponizej. Poprzednio tu (zapytanie) = falszywe "polaczono".
+            // in the read-response branch below. Previously here (on the query) = false "connected".
             // v94: 0x1E (addr 30, machine room ALWAYS present) - activity = bus alive ("Modbus connection").
             if (addr == 0x1E) id(dd_last_1e_read_ms) = millis();
 
@@ -5121,7 +5133,7 @@ interval:
                                                (((uint16_t) frame[9] << 8) | frame[10]) == 0);
                 if (dominus_presence_probe) {
                   id(dd_emu_33_last_ms) = millis();
-                  ESP_LOGW("dd_emu_33", "v52 Dominus probe RX 0x33/2001..2002=[12,0] - AUTO ACK wysłany (fast)");
+                  ESP_LOGW("dd_emu_33", "v52 Dominus probe RX 0x33/2001..2002=[12,0] - AUTO ACK sent (fast)");
                 } else {
                   ESP_LOGW("dd_emu_33", "v52 0x33 WRITE10 start=%u count=%u - AUTO ACK fast-turnaround %s", start, count, emu33_write10_ack_pre_sent ? "OK" : "late");
                   if (!emu33_write10_ack_pre_sent) send_emu33_write10_ack(start, count);
