@@ -84,6 +84,9 @@ substitutions:
   phase_eco: "Eco"
   phase_manual: "Manual"
   cal_label: "Calendar"
+  # Prefix of every entity name. HA already shows entities as "<friendly_name> <name>": set it to "" to avoid
+  # "Immergas" twice in names and entity_ids. Changing it changes the entity_ids (new entities in HA).
+  entity_prefix: "Immergas - "
 
 esphome:
   name: immergas-dd-atom
@@ -773,14 +776,14 @@ globals:
 switch:
   # v1.3.0: 0x29 6107 - setpoint correction by dew point calculation (read by the boiler from the panel)
   - platform: template
-    name: "Immergas - Dew point correction"
+    name: "${entity_prefix}Dew point correction"
     id: sw_punkt_rosy
     icon: mdi:water-thermometer-outline
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
   # v1.2.0: bus sniffer - logs (tag "sniff") every NEW/CHANGED register value on D+/D-. Diagnostic, OFF by default.
   - platform: template
-    name: "Immergas - Bus sniffer"
+    name: "${entity_prefix}Bus sniffer"
     id: sniff_switch
     icon: mdi:radar
     entity_category: diagnostic
@@ -801,7 +804,7 @@ switch:
   # v68: "Discovery of new PDUs" removed - diagnostics belong to the sniffer (immergas-dd-sniffer v47).
   # v68: "Active commands" removed - old active write disabled since v57 (slave model).
   - platform: template
-    name: "Immergas - Emulate Modbus"
+    name: "${entity_prefix}Emulate Modbus"
     id: enable_replies_switch
     icon: mdi:lan-connect
     entity_category: diagnostic
@@ -834,7 +837,7 @@ switch:
   # a panel - never both, since one is physical). Enabling one disables the other. Default: Dominus ON,
   # Zone 1 Panel OFF. "Modbus connection" is the master gate (default ON).
   - platform: template
-    name: "Immergas - Emulate Dominus"
+    name: "${entity_prefix}Emulate Dominus"
     id: dd_emulate_33_switch
     icon: mdi:robot-industrial
     entity_category: diagnostic
@@ -863,7 +866,7 @@ switch:
           ESP_LOGW("dd_mode", "Emulate Dominus 0x33 OFF");
 
   - platform: template
-    name: "Immergas - Emulate Panel Zone 1"
+    name: "${entity_prefix}Emulate Panel Zone 1"
     id: dd_emulate_29_switch
     icon: mdi:robot
     entity_category: diagnostic
@@ -890,7 +893,7 @@ switch:
           ESP_LOGW("dd_mode", "Emulate Zone 1 Panel 0x29 OFF");
 
   - platform: template
-    name: "Immergas - Emulate Panel Zone 2"
+    name: "${entity_prefix}Emulate Panel Zone 2"
     id: dd_emulate_2a_switch
     icon: mdi:robot
     entity_category: diagnostic
@@ -917,7 +920,7 @@ switch:
           ESP_LOGW("dd_mode", "v85 Zone 2 EMULATION addr 42 disabled");
 
   - platform: template
-    name: "Immergas - Emulate Panel Zone 3"
+    name: "${entity_prefix}Emulate Panel Zone 3"
     id: dd_emulate_2b_switch
     icon: mdi:robot
     entity_category: diagnostic
@@ -950,7 +953,7 @@ number:
   # v57 DHW setpoint - control (the emulator returns it on READ 2095, the boiler applies it)
   # ------------------------------------------------------------
   - platform: template
-    name: "Immergas - D05 DHW setpoint value"
+    name: "${entity_prefix}D05 DHW setpoint value"
     id: cwu_setpoint_number
     icon: mdi:water-thermometer
     unit_of_measurement: "°C"
@@ -972,7 +975,7 @@ number:
   # Zone 1 - active setpoint and U03/Offset
   # ------------------------------------------------------------
   - platform: template
-    name: "Immergas - CH Setpoint Zone 1"
+    name: "${entity_prefix}CH Setpoint Zone 1"
     id: zone1_setpoint_number
     icon: mdi:home-thermometer
     unit_of_measurement: "°C"
@@ -992,7 +995,7 @@ number:
           id(zone1_setpoint_number).publish_state(x);  // v61: immediate slider update in HA
 
   - platform: template
-    name: "Immergas - U03 Heating offset (CH) zone 1"
+    name: "${entity_prefix}U03 Heating offset (CH) zone 1"
     id: zone1_offset_number
     icon: mdi:sine-wave
     unit_of_measurement: "°C"
@@ -1014,7 +1017,7 @@ number:
   # v96: ZONE 2/3 - CH setpoint + offset. Placeholders (the boiler reads zones 2/3 only in a multi-zone
   # setup A13; the 0x2A/0x2B serving backend doesn't exist yet). Sliders set the global + sync the thermostat.
   - platform: template
-    name: "Immergas - CH Setpoint Zone 2"
+    name: "${entity_prefix}CH Setpoint Zone 2"
     id: zone2_setpoint_number
     icon: mdi:home-thermometer
     unit_of_measurement: "°C"
@@ -1033,7 +1036,7 @@ number:
           id(zone2_setpoint_number).publish_state(x);
 
   - platform: template
-    name: "Immergas - CH Setpoint Zone 3"
+    name: "${entity_prefix}CH Setpoint Zone 3"
     id: zone3_setpoint_number
     icon: mdi:home-thermometer
     unit_of_measurement: "°C"
@@ -1052,7 +1055,7 @@ number:
           id(zone3_setpoint_number).publish_state(x);
 
   - platform: template
-    name: "Immergas - U04 Heating offset (CH) zone 2"
+    name: "${entity_prefix}U04 Heating offset (CH) zone 2"
     id: zone2_offset_number
     icon: mdi:sine-wave
     unit_of_measurement: "°C"
@@ -1071,7 +1074,7 @@ number:
           id(zone2_offset_number).publish_state(x);
 
   - platform: template
-    name: "Immergas - U16 Heating offset (CH) zone 3"
+    name: "${entity_prefix}U16 Heating offset (CH) zone 3"
     id: zone3_offset_number
     icon: mdi:sine-wave
     unit_of_measurement: "°C"
@@ -1093,7 +1096,7 @@ number:
   # Dominus - "Manage Zone" screen
   # ------------------------------------------------------------
   - platform: template
-    name: "Immergas - Set Comfort Heat Zone 1"
+    name: "${entity_prefix}Set Comfort Heat Zone 1"
     id: number_dominus_comfort_heat
     icon: mdi:fire
     unit_of_measurement: "°C"
@@ -1112,7 +1115,7 @@ number:
           id(number_dominus_comfort_heat).publish_state(x);  // v61: immediate slider update
 
   - platform: template
-    name: "Immergas - Set Eco Heat Zone 1"
+    name: "${entity_prefix}Set Eco Heat Zone 1"
     id: number_dominus_eco_heat
     icon: mdi:leaf
     unit_of_measurement: "°C"
@@ -1131,7 +1134,7 @@ number:
           id(number_dominus_eco_heat).publish_state(x);  // v61: immediate slider update
 
   - platform: template
-    name: "Immergas - Set Comfort Cool Zone 1"
+    name: "${entity_prefix}Set Comfort Cool Zone 1"
     id: number_dominus_comfort_cool
     icon: mdi:snowflake
     unit_of_measurement: "°C"
@@ -1150,7 +1153,7 @@ number:
           id(number_dominus_comfort_cool).publish_state(x);  // v61: immediate slider update
 
   - platform: template
-    name: "Immergas - Set Eco Cool Zone 1"
+    name: "${entity_prefix}Set Eco Cool Zone 1"
     id: number_dominus_eco_cool
     icon: mdi:snowflake-thermometer
     unit_of_measurement: "°C"
@@ -1169,7 +1172,7 @@ number:
           id(number_dominus_eco_cool).publish_state(x);  // v61: immediate slider update
 
   - platform: template
-    name: "Immergas - U07 Humidity setting zone 1"
+    name: "${entity_prefix}U07 Humidity setting zone 1"
     id: number_dominus_humidity
     icon: mdi:water-percent
     unit_of_measurement: "%"
@@ -1188,7 +1191,7 @@ number:
           id(number_dominus_humidity).publish_state(x);  // v61: immediate slider update
 
   - platform: template
-    name: "Immergas - Set Flow Zone 1"
+    name: "${entity_prefix}Set Flow Zone 1"
     id: number_dominus_set_flow
     icon: mdi:coolant-temperature
     unit_of_measurement: "°C"
@@ -1209,7 +1212,7 @@ number:
   # v102: "Manage Zone" settings - Zone 2 (0x2A)
 
   - platform: template
-    name: "Immergas - Set Comfort Heat Zone 2"
+    name: "${entity_prefix}Set Comfort Heat Zone 2"
     id: number_dominus_comfort_heat_z2
     icon: mdi:fire
     unit_of_measurement: "°C"
@@ -1228,7 +1231,7 @@ number:
           id(number_dominus_comfort_heat_z2).publish_state(x);
 
   - platform: template
-    name: "Immergas - Set Eco Heat Zone 2"
+    name: "${entity_prefix}Set Eco Heat Zone 2"
     id: number_dominus_eco_heat_z2
     icon: mdi:leaf
     unit_of_measurement: "°C"
@@ -1247,7 +1250,7 @@ number:
           id(number_dominus_eco_heat_z2).publish_state(x);
 
   - platform: template
-    name: "Immergas - Set Comfort Cool Zone 2"
+    name: "${entity_prefix}Set Comfort Cool Zone 2"
     id: number_dominus_comfort_cool_z2
     icon: mdi:snowflake
     unit_of_measurement: "°C"
@@ -1266,7 +1269,7 @@ number:
           id(number_dominus_comfort_cool_z2).publish_state(x);
 
   - platform: template
-    name: "Immergas - Set Eco Cool Zone 2"
+    name: "${entity_prefix}Set Eco Cool Zone 2"
     id: number_dominus_eco_cool_z2
     icon: mdi:snowflake-thermometer
     unit_of_measurement: "°C"
@@ -1285,7 +1288,7 @@ number:
           id(number_dominus_eco_cool_z2).publish_state(x);
 
   - platform: template
-    name: "Immergas - U08 Humidity setting zone 2"
+    name: "${entity_prefix}U08 Humidity setting zone 2"
     id: number_dominus_humidity_z2
     icon: mdi:water-percent
     unit_of_measurement: "%"
@@ -1304,7 +1307,7 @@ number:
           id(number_dominus_humidity_z2).publish_state(x);
 
   - platform: template
-    name: "Immergas - Set Flow Zone 2"
+    name: "${entity_prefix}Set Flow Zone 2"
     id: number_dominus_set_flow_z2
     icon: mdi:coolant-temperature
     unit_of_measurement: "°C"
@@ -1325,7 +1328,7 @@ number:
   # v102: "Manage Zone" settings - Zone 3 (0x2B)
 
   - platform: template
-    name: "Immergas - Set Comfort Heat Zone 3"
+    name: "${entity_prefix}Set Comfort Heat Zone 3"
     id: number_dominus_comfort_heat_z3
     icon: mdi:fire
     unit_of_measurement: "°C"
@@ -1344,7 +1347,7 @@ number:
           id(number_dominus_comfort_heat_z3).publish_state(x);
 
   - platform: template
-    name: "Immergas - Set Eco Heat Zone 3"
+    name: "${entity_prefix}Set Eco Heat Zone 3"
     id: number_dominus_eco_heat_z3
     icon: mdi:leaf
     unit_of_measurement: "°C"
@@ -1363,7 +1366,7 @@ number:
           id(number_dominus_eco_heat_z3).publish_state(x);
 
   - platform: template
-    name: "Immergas - Set Comfort Cool Zone 3"
+    name: "${entity_prefix}Set Comfort Cool Zone 3"
     id: number_dominus_comfort_cool_z3
     icon: mdi:snowflake
     unit_of_measurement: "°C"
@@ -1382,7 +1385,7 @@ number:
           id(number_dominus_comfort_cool_z3).publish_state(x);
 
   - platform: template
-    name: "Immergas - Set Eco Cool Zone 3"
+    name: "${entity_prefix}Set Eco Cool Zone 3"
     id: number_dominus_eco_cool_z3
     icon: mdi:snowflake-thermometer
     unit_of_measurement: "°C"
@@ -1401,7 +1404,7 @@ number:
           id(number_dominus_eco_cool_z3).publish_state(x);
 
   - platform: template
-    name: "Immergas - U18 Humidity setting zone 3"
+    name: "${entity_prefix}U18 Humidity setting zone 3"
     id: number_dominus_humidity_z3
     icon: mdi:water-percent
     unit_of_measurement: "%"
@@ -1420,7 +1423,7 @@ number:
           id(number_dominus_humidity_z3).publish_state(x);
 
   - platform: template
-    name: "Immergas - Set Flow Zone 3"
+    name: "${entity_prefix}Set Flow Zone 3"
     id: number_dominus_set_flow_z3
     icon: mdi:coolant-temperature
     unit_of_measurement: "°C"
@@ -1444,7 +1447,7 @@ datetime:
   # Read by the emulator on 0x33/0x29 (registers 2310-2347). HH:MM time-picker in HA.
   # optimistic+restore: state kept locally (flash), no time source needed.
   - platform: template
-    name: "Immergas - Cal. 1 Range 1 ON"
+    name: "${entity_prefix}Cal. 1 Range 1 ON"
     id: dt_cal1_f1_on
     type: time
     optimistic: true
@@ -1453,7 +1456,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 1 Range 1 OFF"
+    name: "${entity_prefix}Cal. 1 Range 1 OFF"
     id: dt_cal1_f1_off
     type: time
     optimistic: true
@@ -1462,7 +1465,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 1 Range 2 ON"
+    name: "${entity_prefix}Cal. 1 Range 2 ON"
     id: dt_cal1_f2_on
     type: time
     optimistic: true
@@ -1471,7 +1474,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 1 Range 2 OFF"
+    name: "${entity_prefix}Cal. 1 Range 2 OFF"
     id: dt_cal1_f2_off
     type: time
     optimistic: true
@@ -1480,7 +1483,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 1 Range 3 ON"
+    name: "${entity_prefix}Cal. 1 Range 3 ON"
     id: dt_cal1_f3_on
     type: time
     optimistic: true
@@ -1489,7 +1492,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 1 Range 3 OFF"
+    name: "${entity_prefix}Cal. 1 Range 3 OFF"
     id: dt_cal1_f3_off
     type: time
     optimistic: true
@@ -1498,7 +1501,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 1 Range 4 ON"
+    name: "${entity_prefix}Cal. 1 Range 4 ON"
     id: dt_cal1_f4_on
     type: time
     optimistic: true
@@ -1507,7 +1510,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 1 Range 4 OFF"
+    name: "${entity_prefix}Cal. 1 Range 4 OFF"
     id: dt_cal1_f4_off
     type: time
     optimistic: true
@@ -1516,7 +1519,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 2 Range 1 ON"
+    name: "${entity_prefix}Cal. 2 Range 1 ON"
     id: dt_cal2_f1_on
     type: time
     optimistic: true
@@ -1525,7 +1528,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 2 Range 1 OFF"
+    name: "${entity_prefix}Cal. 2 Range 1 OFF"
     id: dt_cal2_f1_off
     type: time
     optimistic: true
@@ -1534,7 +1537,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 2 Range 2 ON"
+    name: "${entity_prefix}Cal. 2 Range 2 ON"
     id: dt_cal2_f2_on
     type: time
     optimistic: true
@@ -1543,7 +1546,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 2 Range 2 OFF"
+    name: "${entity_prefix}Cal. 2 Range 2 OFF"
     id: dt_cal2_f2_off
     type: time
     optimistic: true
@@ -1552,7 +1555,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 2 Range 3 ON"
+    name: "${entity_prefix}Cal. 2 Range 3 ON"
     id: dt_cal2_f3_on
     type: time
     optimistic: true
@@ -1561,7 +1564,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 2 Range 3 OFF"
+    name: "${entity_prefix}Cal. 2 Range 3 OFF"
     id: dt_cal2_f3_off
     type: time
     optimistic: true
@@ -1570,7 +1573,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 2 Range 4 ON"
+    name: "${entity_prefix}Cal. 2 Range 4 ON"
     id: dt_cal2_f4_on
     type: time
     optimistic: true
@@ -1579,7 +1582,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 2 Range 4 OFF"
+    name: "${entity_prefix}Cal. 2 Range 4 OFF"
     id: dt_cal2_f4_off
     type: time
     optimistic: true
@@ -1588,7 +1591,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 3 Range 1 ON"
+    name: "${entity_prefix}Cal. 3 Range 1 ON"
     id: dt_cal3_f1_on
     type: time
     optimistic: true
@@ -1597,7 +1600,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 3 Range 1 OFF"
+    name: "${entity_prefix}Cal. 3 Range 1 OFF"
     id: dt_cal3_f1_off
     type: time
     optimistic: true
@@ -1606,7 +1609,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 3 Range 2 ON"
+    name: "${entity_prefix}Cal. 3 Range 2 ON"
     id: dt_cal3_f2_on
     type: time
     optimistic: true
@@ -1615,7 +1618,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 3 Range 2 OFF"
+    name: "${entity_prefix}Cal. 3 Range 2 OFF"
     id: dt_cal3_f2_off
     type: time
     optimistic: true
@@ -1624,7 +1627,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 3 Range 3 ON"
+    name: "${entity_prefix}Cal. 3 Range 3 ON"
     id: dt_cal3_f3_on
     type: time
     optimistic: true
@@ -1633,7 +1636,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 3 Range 3 OFF"
+    name: "${entity_prefix}Cal. 3 Range 3 OFF"
     id: dt_cal3_f3_off
     type: time
     optimistic: true
@@ -1642,7 +1645,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 3 Range 4 ON"
+    name: "${entity_prefix}Cal. 3 Range 4 ON"
     id: dt_cal3_f4_on
     type: time
     optimistic: true
@@ -1651,7 +1654,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 3 Range 4 OFF"
+    name: "${entity_prefix}Cal. 3 Range 4 OFF"
     id: dt_cal3_f4_off
     type: time
     optimistic: true
@@ -1660,7 +1663,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 4 Range 1 ON"
+    name: "${entity_prefix}Cal. 4 Range 1 ON"
     id: dt_cal4_f1_on
     type: time
     optimistic: true
@@ -1669,7 +1672,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 4 Range 1 OFF"
+    name: "${entity_prefix}Cal. 4 Range 1 OFF"
     id: dt_cal4_f1_off
     type: time
     optimistic: true
@@ -1678,7 +1681,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 4 Range 2 ON"
+    name: "${entity_prefix}Cal. 4 Range 2 ON"
     id: dt_cal4_f2_on
     type: time
     optimistic: true
@@ -1687,7 +1690,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 4 Range 2 OFF"
+    name: "${entity_prefix}Cal. 4 Range 2 OFF"
     id: dt_cal4_f2_off
     type: time
     optimistic: true
@@ -1696,7 +1699,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 4 Range 3 ON"
+    name: "${entity_prefix}Cal. 4 Range 3 ON"
     id: dt_cal4_f3_on
     type: time
     optimistic: true
@@ -1705,7 +1708,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 4 Range 3 OFF"
+    name: "${entity_prefix}Cal. 4 Range 3 OFF"
     id: dt_cal4_f3_off
     type: time
     optimistic: true
@@ -1714,7 +1717,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-end
   - platform: template
-    name: "Immergas - Cal. 4 Range 4 ON"
+    name: "${entity_prefix}Cal. 4 Range 4 ON"
     id: dt_cal4_f4_on
     type: time
     optimistic: true
@@ -1723,7 +1726,7 @@ datetime:
     entity_category: config
     icon: mdi:clock-start
   - platform: template
-    name: "Immergas - Cal. 4 Range 4 OFF"
+    name: "${entity_prefix}Cal. 4 Range 4 OFF"
     id: dt_cal4_f4_off
     type: time
     optimistic: true
@@ -1735,7 +1738,7 @@ datetime:
 select:
   # Language of the fault texts (description + "no fault" code). Restored across reboots.
   - platform: template
-    name: "Immergas - Fault language"
+    name: "${entity_prefix}Fault language"
     id: fault_lang
     icon: mdi:translate
     entity_category: config
@@ -1751,7 +1754,7 @@ select:
 
   # v1.3.0: 0x29 2294 - time programs active (read by the boiler from the panel; zones 2/3 inherit it)
   - platform: template
-    name: "Immergas - Time programs Zone 1"
+    name: "${entity_prefix}Time programs Zone 1"
     id: sel_programy_czasowe
     icon: mdi:calendar-clock
     optimistic: true
@@ -1762,7 +1765,7 @@ select:
     initial_option: "Manual"
   # v1.3.0: 0x29 6105 - modulation with the room probe (panel Service menu -> Zone definition)
   - platform: template
-    name: "Immergas - Room probe modulation"
+    name: "${entity_prefix}Room probe modulation"
     id: sel_modulacja_sonda
     icon: mdi:home-thermometer-outline
     optimistic: true
@@ -1773,7 +1776,7 @@ select:
     initial_option: "NO"
   # v70: assign a profile (Cal 1-4) to a weekday - Zone 1 (registers 2410-2416).
   - platform: template
-    name: "Immergas - CH Schedule Monday Zone 1"
+    name: "${entity_prefix}CH Schedule Monday Zone 1"
     id: sel_weekday_1
     icon: mdi:calendar-today
     optimistic: true
@@ -1786,7 +1789,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Tuesday Zone 1"
+    name: "${entity_prefix}CH Schedule Tuesday Zone 1"
     id: sel_weekday_2
     icon: mdi:calendar-today
     optimistic: true
@@ -1799,7 +1802,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Wednesday Zone 1"
+    name: "${entity_prefix}CH Schedule Wednesday Zone 1"
     id: sel_weekday_3
     icon: mdi:calendar-today
     optimistic: true
@@ -1812,7 +1815,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Thursday Zone 1"
+    name: "${entity_prefix}CH Schedule Thursday Zone 1"
     id: sel_weekday_4
     icon: mdi:calendar-today
     optimistic: true
@@ -1825,7 +1828,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Friday Zone 1"
+    name: "${entity_prefix}CH Schedule Friday Zone 1"
     id: sel_weekday_5
     icon: mdi:calendar-today
     optimistic: true
@@ -1838,7 +1841,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Saturday Zone 1"
+    name: "${entity_prefix}CH Schedule Saturday Zone 1"
     id: sel_weekday_6
     icon: mdi:calendar-today
     optimistic: true
@@ -1851,7 +1854,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Sunday Zone 1"
+    name: "${entity_prefix}CH Schedule Sunday Zone 1"
     id: sel_weekday_7
     icon: mdi:calendar-today
     optimistic: true
@@ -1866,7 +1869,7 @@ select:
   # v70: shortcut - set the SAME profile for all 7 days at once (per-day still works independently).
   # "(select)" = neutral state, does nothing.
   - platform: template
-    name: "Immergas - CH Schedule all days Zone 1"
+    name: "${entity_prefix}CH Schedule all days Zone 1"
     id: sel_weekday_all
     icon: mdi:calendar-multiselect
     optimistic: true
@@ -1891,7 +1894,7 @@ select:
           ESP_LOGW("dd_chrono", "v70 All Zone 1 days -> %s", x.c_str());
   # v106: assign a calendar to a day - Zone 2 (0x2A, reg. 2420-2426) and Zone 3 (0x2B, 2430-2436).
   - platform: template
-    name: "Immergas - CH Schedule Monday Zone 2"
+    name: "${entity_prefix}CH Schedule Monday Zone 2"
     id: sel_weekday_z2_1
     icon: mdi:calendar-today
     optimistic: true
@@ -1904,7 +1907,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Tuesday Zone 2"
+    name: "${entity_prefix}CH Schedule Tuesday Zone 2"
     id: sel_weekday_z2_2
     icon: mdi:calendar-today
     optimistic: true
@@ -1917,7 +1920,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Wednesday Zone 2"
+    name: "${entity_prefix}CH Schedule Wednesday Zone 2"
     id: sel_weekday_z2_3
     icon: mdi:calendar-today
     optimistic: true
@@ -1930,7 +1933,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Thursday Zone 2"
+    name: "${entity_prefix}CH Schedule Thursday Zone 2"
     id: sel_weekday_z2_4
     icon: mdi:calendar-today
     optimistic: true
@@ -1943,7 +1946,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Friday Zone 2"
+    name: "${entity_prefix}CH Schedule Friday Zone 2"
     id: sel_weekday_z2_5
     icon: mdi:calendar-today
     optimistic: true
@@ -1956,7 +1959,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Saturday Zone 2"
+    name: "${entity_prefix}CH Schedule Saturday Zone 2"
     id: sel_weekday_z2_6
     icon: mdi:calendar-today
     optimistic: true
@@ -1969,7 +1972,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Sunday Zone 2"
+    name: "${entity_prefix}CH Schedule Sunday Zone 2"
     id: sel_weekday_z2_7
     icon: mdi:calendar-today
     optimistic: true
@@ -1982,7 +1985,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule all days Zone 2"
+    name: "${entity_prefix}CH Schedule all days Zone 2"
     id: sel_weekday_z2_all
     icon: mdi:calendar-multiselect
     optimistic: true
@@ -2006,7 +2009,7 @@ select:
           id(sel_weekday_z2_7).make_call().set_option(x).perform();
           ESP_LOGW("dd_chrono", "v106 All Zone 2 days -> %s", x.c_str());
   - platform: template
-    name: "Immergas - CH Schedule Monday Zone 3"
+    name: "${entity_prefix}CH Schedule Monday Zone 3"
     id: sel_weekday_z3_1
     icon: mdi:calendar-today
     optimistic: true
@@ -2019,7 +2022,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Tuesday Zone 3"
+    name: "${entity_prefix}CH Schedule Tuesday Zone 3"
     id: sel_weekday_z3_2
     icon: mdi:calendar-today
     optimistic: true
@@ -2032,7 +2035,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Wednesday Zone 3"
+    name: "${entity_prefix}CH Schedule Wednesday Zone 3"
     id: sel_weekday_z3_3
     icon: mdi:calendar-today
     optimistic: true
@@ -2045,7 +2048,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Thursday Zone 3"
+    name: "${entity_prefix}CH Schedule Thursday Zone 3"
     id: sel_weekday_z3_4
     icon: mdi:calendar-today
     optimistic: true
@@ -2058,7 +2061,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Friday Zone 3"
+    name: "${entity_prefix}CH Schedule Friday Zone 3"
     id: sel_weekday_z3_5
     icon: mdi:calendar-today
     optimistic: true
@@ -2071,7 +2074,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Saturday Zone 3"
+    name: "${entity_prefix}CH Schedule Saturday Zone 3"
     id: sel_weekday_z3_6
     icon: mdi:calendar-today
     optimistic: true
@@ -2084,7 +2087,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule Sunday Zone 3"
+    name: "${entity_prefix}CH Schedule Sunday Zone 3"
     id: sel_weekday_z3_7
     icon: mdi:calendar-today
     optimistic: true
@@ -2097,7 +2100,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - CH Schedule all days Zone 3"
+    name: "${entity_prefix}CH Schedule all days Zone 3"
     id: sel_weekday_z3_all
     icon: mdi:calendar-multiselect
     optimistic: true
@@ -2123,7 +2126,7 @@ select:
   # v83: DHW schedule (water heating) - assign a Cal 1-4 profile to a weekday
   # (PDU 2490-2496). The SAME cal1-4 profiles as Zone 1 (times 2310-2347), own day assignment.
   - platform: template
-    name: "Immergas - DHW Schedule Monday"
+    name: "${entity_prefix}DHW Schedule Monday"
     id: sel_dhw_weekday_1
     icon: mdi:calendar-today
     optimistic: true
@@ -2136,7 +2139,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - DHW Schedule Tuesday"
+    name: "${entity_prefix}DHW Schedule Tuesday"
     id: sel_dhw_weekday_2
     icon: mdi:calendar-today
     optimistic: true
@@ -2149,7 +2152,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - DHW Schedule Wednesday"
+    name: "${entity_prefix}DHW Schedule Wednesday"
     id: sel_dhw_weekday_3
     icon: mdi:calendar-today
     optimistic: true
@@ -2162,7 +2165,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - DHW Schedule Thursday"
+    name: "${entity_prefix}DHW Schedule Thursday"
     id: sel_dhw_weekday_4
     icon: mdi:calendar-today
     optimistic: true
@@ -2175,7 +2178,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - DHW Schedule Friday"
+    name: "${entity_prefix}DHW Schedule Friday"
     id: sel_dhw_weekday_5
     icon: mdi:calendar-today
     optimistic: true
@@ -2188,7 +2191,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - DHW Schedule Saturday"
+    name: "${entity_prefix}DHW Schedule Saturday"
     id: sel_dhw_weekday_6
     icon: mdi:calendar-today
     optimistic: true
@@ -2201,7 +2204,7 @@ select:
       - "${cal_label} 4"
     initial_option: "${cal_label} 1"
   - platform: template
-    name: "Immergas - DHW Schedule Sunday"
+    name: "${entity_prefix}DHW Schedule Sunday"
     id: sel_dhw_weekday_7
     icon: mdi:calendar-today
     optimistic: true
@@ -2215,7 +2218,7 @@ select:
     initial_option: "${cal_label} 1"
   # v83: shortcut - set the same profile for all 7 DHW days.
   - platform: template
-    name: "Immergas - DHW Schedule all days"
+    name: "${entity_prefix}DHW Schedule all days"
     id: sel_dhw_weekday_all
     icon: mdi:calendar-multiselect
     optimistic: true
@@ -2241,7 +2244,7 @@ select:
   # v100: 5 sources for Zone 1 (Panel/Basement/Ground floor/Upper floor/Whole house). Default Panel (idx 1): the
   # HA sources are placeholders until you set your own entity_id, and a missing entity left a stale 21.0 C.
   - platform: template
-    name: "Immergas - Temperature source Zone 1"
+    name: "${entity_prefix}Temperature source Zone 1"
     id: temp_source_select
     icon: mdi:thermometer
     optimistic: true
@@ -2270,7 +2273,7 @@ select:
           }
           ESP_LOGW("dd_control", "v100 Zone 1 TEMP source -> %d (%s)", idx, x.c_str());
   - platform: template
-    name: "Immergas - Humidity source Zone 1"
+    name: "${entity_prefix}Humidity source Zone 1"
     id: hum_source_select
     icon: mdi:water-percent
     optimistic: true
@@ -2301,7 +2304,7 @@ select:
 
   # v100: switchable 5-option temp/humidity sources for Zone 2 and 3 (Panel/Basement/Ground floor/Upper floor/Whole house), default Panel.
   - platform: template
-    name: "Immergas - Temperature source Zone 2"
+    name: "${entity_prefix}Temperature source Zone 2"
     id: temp_source_z2_select
     icon: mdi:thermometer
     optimistic: true
@@ -2330,7 +2333,7 @@ select:
           }
           ESP_LOGW("dd_control", "v100 Zone 2 TEMP source -> %d (%s)", idx, x.c_str());
   - platform: template
-    name: "Immergas - Temperature source Zone 3"
+    name: "${entity_prefix}Temperature source Zone 3"
     id: temp_source_z3_select
     icon: mdi:thermometer
     optimistic: true
@@ -2359,7 +2362,7 @@ select:
           }
           ESP_LOGW("dd_control", "v100 Zone 3 TEMP source -> %d (%s)", idx, x.c_str());
   - platform: template
-    name: "Immergas - Humidity source Zone 2"
+    name: "${entity_prefix}Humidity source Zone 2"
     id: hum_source_z2_select
     icon: mdi:water-percent
     optimistic: true
@@ -2388,7 +2391,7 @@ select:
           }
           ESP_LOGW("dd_control", "v100 Zone 2 HUMIDITY source -> %d (%s)", idx, x.c_str());
   - platform: template
-    name: "Immergas - Humidity source Zone 3"
+    name: "${entity_prefix}Humidity source Zone 3"
     id: hum_source_z3_select
     icon: mdi:water-percent
     optimistic: true
@@ -2418,7 +2421,7 @@ select:
           ESP_LOGW("dd_control", "v100 Zone 3 HUMIDITY source -> %d (%s)", idx, x.c_str());
 
   - platform: template
-    name: "Immergas - System operating mode"
+    name: "${entity_prefix}System operating mode"
     id: operating_mode_select
     icon: mdi:state-machine
     # v60: optimistic MUST be false because there is a lambda (ESPHome: "optimistic cannot be used with
@@ -2466,7 +2469,7 @@ select:
 # v1.2.0: reset the sniffer map = new baseline (e.g. before clicking through panel options).
 button:
   - platform: template
-    name: "Immergas - Bus sniffer reset"
+    name: "${entity_prefix}Bus sniffer reset"
     id: sniff_reset_button
     icon: mdi:restart
     entity_category: diagnostic
@@ -2478,7 +2481,7 @@ sensor:
 
   # v1.2.0 bus sniffer counters
   - platform: template
-    name: "Immergas - Bus sniffer registers"
+    name: "${entity_prefix}Bus sniffer registers"
     id: sniff_regs_sensor
     icon: mdi:counter
     entity_category: diagnostic
@@ -2487,7 +2490,7 @@ sensor:
     lambda: |-
       return id(dd_sniff_regs);
   - platform: template
-    name: "Immergas - Bus sniffer changes"
+    name: "${entity_prefix}Bus sniffer changes"
     id: sniff_changes_sensor
     icon: mdi:counter
     entity_category: diagnostic
@@ -2500,22 +2503,22 @@ sensor:
   # Device and bus health. Uptime drop = reboot; Loop time spikes = main loop blocked; CRC/TX counters: watch them
   # after any change to the RS485 path.
   - platform: uptime
-    name: "Immergas - Uptime"
+    name: "${entity_prefix}Uptime"
     entity_category: diagnostic
     update_interval: 10s
   - platform: wifi_signal
-    name: "Immergas - WiFi signal"
+    name: "${entity_prefix}WiFi signal"
     entity_category: diagnostic
     update_interval: 30s
   - platform: debug
     loop_time:
-      name: "Immergas - Loop time"
+      name: "${entity_prefix}Loop time"
       entity_category: diagnostic
     free:
-      name: "Immergas - Free heap"
+      name: "${entity_prefix}Free heap"
       entity_category: diagnostic
   - platform: template
-    name: "Immergas - RS485 CRC errors"
+    name: "${entity_prefix}RS485 CRC errors"
     id: dd_crc_bad_sensor
     icon: mdi:alert-octagon-outline
     entity_category: diagnostic
@@ -2525,7 +2528,7 @@ sensor:
     lambda: |-
       return (float) id(dd_crc_bad_count);
   - platform: template
-    name: "Immergas - Dominus TX frames"
+    name: "${entity_prefix}Dominus TX frames"
     id: dd_emu33_tx_sensor
     icon: mdi:upload-network-outline
     entity_category: diagnostic
@@ -2537,7 +2540,7 @@ sensor:
   # Boiler clock (PDU 2300: bits 15-13 weekday 1 = Mon .. 7 = Sun, 12-8 hour, 7-0 minute) minus HA local time,
   # in minutes (+ ahead / - behind). The zone schedules run on the boiler clock. Resolution 1 min.
   - platform: template
-    name: "Immergas - Boiler clock drift"
+    name: "${entity_prefix}Boiler clock drift"
     id: controller_clock_drift
     icon: mdi:clock-alert-outline
     entity_category: diagnostic
@@ -2560,7 +2563,7 @@ sensor:
   # 3-way valve on the cylinder) and compressor running. Otherwise they measure the DHW circuit or stagnant water
   # -> unknown (gap in the HA graph). TW2 verified against the boiler display D20 (Magis Combo V2, fw 5.03).
   - platform: template
-    name: "Immergas - System flow temperature"
+    name: "${entity_prefix}System flow temperature"
     id: system_flow_temp
     icon: mdi:thermometer-chevron-up
     device_class: temperature
@@ -2574,7 +2577,7 @@ sensor:
       if (!space || id(piec_zadanie_cwu_oczek).state || !id(pc_sprezarka_pracuje).state) return NAN;
       return id(sniff_1e_w_21).state;
   - platform: template
-    name: "Immergas - System return temperature"
+    name: "${entity_prefix}System return temperature"
     id: system_return_temp
     icon: mdi:thermometer-chevron-down
     device_class: temperature
@@ -2588,7 +2591,7 @@ sensor:
       if (!space || id(piec_zadanie_cwu_oczek).state || !id(pc_sprezarka_pracuje).state) return NAN;
       return id(sniff_1e_w_20).state;
   - platform: template
-    name: "Immergas - System delta T"
+    name: "${entity_prefix}System delta T"
     id: system_delta_t
     icon: mdi:delta
     state_class: measurement
@@ -2602,7 +2605,7 @@ sensor:
       return id(sniff_1e_w_21).state - id(sniff_1e_w_20).state;  // > 0 heating, < 0 cooling
   # 3003 = heating-curve flow setpoint (0 without demand)
   - platform: template
-    name: "Immergas - D04 Calculated flow setpoint"
+    name: "${entity_prefix}D04 Calculated flow setpoint"
     id: sniff_29_w_3003
     icon: mdi:thermometer
     device_class: temperature
@@ -2612,7 +2615,7 @@ sensor:
     update_interval: never
   # 3011 = main generator (heat pump) flow
   - platform: template
-    name: "Immergas - D20 Main generator flow temperature"
+    name: "${entity_prefix}D20 Main generator flow temperature"
     id: sniff_29_w_3011
     icon: mdi:thermometer
     device_class: temperature
@@ -2622,7 +2625,7 @@ sensor:
     update_interval: never
   # 3012 = main generator (heat pump) return
   - platform: template
-    name: "Immergas - D08 Main generator return temperature"
+    name: "${entity_prefix}D08 Main generator return temperature"
     id: sniff_29_w_3012
     icon: mdi:thermometer
     device_class: temperature
@@ -2632,7 +2635,7 @@ sensor:
     update_interval: never
   # 3013 = secondary generator (gas boiler) flow ("Flow temp. 2")
   - platform: template
-    name: "Immergas - D01 Secondary generator flow temperature"
+    name: "${entity_prefix}D01 Secondary generator flow temperature"
     id: sniff_29_w_3013
     icon: mdi:thermometer
     device_class: temperature
@@ -2642,7 +2645,7 @@ sensor:
     update_interval: never
   # 3014 = secondary generator return ("Return temp. 2")
   - platform: template
-    name: "Immergas - Secondary generator return temperature"
+    name: "${entity_prefix}Secondary generator return temperature"
     id: sniff_29_w_3014
     icon: mdi:thermometer
     device_class: temperature
@@ -2652,7 +2655,7 @@ sensor:
     update_interval: never
   # 3015 = DHW setpoint the boiler is actually using (e.g. 60 during anti-legionella)
   - platform: template
-    name: "Immergas - D05 Active DHW setpoint (boiler)"
+    name: "${entity_prefix}D05 Active DHW setpoint (boiler)"
     id: sniff_29_w_3015
     icon: mdi:thermometer
     device_class: temperature
@@ -2661,7 +2664,7 @@ sensor:
     accuracy_decimals: 1
     update_interval: never
   - platform: template
-    name: "Immergas - A13 Number of zones"
+    name: "${entity_prefix}A13 Number of zones"
     id: sniff_33_w_4199
     icon: mdi:numeric
     entity_category: diagnostic
@@ -2671,7 +2674,7 @@ sensor:
   # v1.2.0 heat pump via the outdoor-unit interface board (0x1E, Samsung MIM). Verified on 3 buses (D+/D-, T-/T+, NASA F1/F2).
   # 0x1E I3
   - platform: template
-    name: "Immergas - HP D73 Compressor discharge temperature"
+    name: "${entity_prefix}HP D73 Compressor discharge temperature"
     id: sniff_1e_i_3
     icon: mdi:thermometer
     device_class: temperature
@@ -2681,7 +2684,7 @@ sensor:
     update_interval: never
   # 0x1E I4
   - platform: template
-    name: "Immergas - HP D74 Evaporator temperature (outdoor coil)"
+    name: "${entity_prefix}HP D74 Evaporator temperature (outdoor coil)"
     id: sniff_1e_i_4
     icon: mdi:thermometer
     device_class: temperature
@@ -2691,7 +2694,7 @@ sensor:
     update_interval: never
   # 0x1E I5 (the boiler forwards it as 3002)
   - platform: template
-    name: "Immergas - HP D79 Outdoor unit probe temperature"
+    name: "${entity_prefix}HP D79 Outdoor unit probe temperature"
     id: sniff_1e_i_5
     icon: mdi:thermometer
     device_class: temperature
@@ -2701,7 +2704,7 @@ sensor:
     update_interval: never
   # 0x1E I6
   - platform: template
-    name: "Immergas - HP D72 Compressor temperature (shell)"
+    name: "${entity_prefix}HP D72 Compressor temperature (shell)"
     id: sniff_1e_i_6
     icon: mdi:thermometer
     device_class: temperature
@@ -2711,7 +2714,7 @@ sensor:
     update_interval: never
   # 0x1E I17
   - platform: template
-    name: "Immergas - HP Target discharge temperature"
+    name: "${entity_prefix}HP Target discharge temperature"
     id: sniff_1e_i_17
     icon: mdi:thermometer
     device_class: temperature
@@ -2721,7 +2724,7 @@ sensor:
     update_interval: never
   # 0x1E I10 = water target sent to the HP (= D04 on demand, 5.0 idle)
   - platform: template
-    name: "Immergas - HP Water target temperature"
+    name: "${entity_prefix}HP Water target temperature"
     id: sniff_1e_i_10
     icon: mdi:thermometer
     device_class: temperature
@@ -2731,7 +2734,7 @@ sensor:
     update_interval: never
   # 0x1E W20 = boiler -> HP (the outdoor unit has no water probes)
   - platform: template
-    name: "Immergas - HP D08 Water return temperature (TW1)"
+    name: "${entity_prefix}HP D08 Water return temperature (TW1)"
     id: sniff_1e_w_20
     icon: mdi:thermometer
     device_class: temperature
@@ -2741,7 +2744,7 @@ sensor:
     update_interval: never
   # 0x1E W21
   - platform: template
-    name: "Immergas - HP D20 Water flow temperature (TW2)"
+    name: "${entity_prefix}HP D20 Water flow temperature (TW2)"
     id: sniff_1e_w_21
     icon: mdi:thermometer
     device_class: temperature
@@ -2751,7 +2754,7 @@ sensor:
     update_interval: never
   # 0x1E W22
   - platform: template
-    name: "Immergas - HP D24 Refrigerant liquid temperature"
+    name: "${entity_prefix}HP D24 Refrigerant liquid temperature"
     id: sniff_1e_w_22
     icon: mdi:thermometer
     device_class: temperature
@@ -2760,7 +2763,7 @@ sensor:
     accuracy_decimals: 1
     update_interval: never
   - platform: template
-    name: "Immergas - HP D71 Compressor frequency"
+    name: "${entity_prefix}HP D71 Compressor frequency"
     id: sniff_1e_i_11
     icon: mdi:sine-wave
     device_class: frequency
@@ -2769,7 +2772,7 @@ sensor:
     accuracy_decimals: 0
     update_interval: never
   - platform: template
-    name: "Immergas - HP D75 Compressor current"
+    name: "${entity_prefix}HP D75 Compressor current"
     id: sniff_1e_i_13
     icon: mdi:current-ac
     device_class: current
@@ -2778,7 +2781,7 @@ sensor:
     accuracy_decimals: 1
     update_interval: never
   - platform: template
-    name: "Immergas - HP D76 Fan target speed"
+    name: "${entity_prefix}HP D76 Fan target speed"
     id: sniff_1e_i_14
     icon: mdi:fan
     state_class: measurement
@@ -2786,7 +2789,7 @@ sensor:
     accuracy_decimals: 0
     update_interval: never
   - platform: template
-    name: "Immergas - HP D77 EEV position"
+    name: "${entity_prefix}HP D77 EEV position"
     id: sniff_1e_i_16
     icon: mdi:valve
     state_class: measurement
@@ -3004,7 +3007,7 @@ sensor:
   # Main user values
   # ------------------------------------------------------------
   - platform: template
-    name: "Immergas - D03 DHW cylinder temperature"
+    name: "${entity_prefix}D03 DHW cylinder temperature"
     id: dhw_temp_sensor
     icon: mdi:thermometer-water
     unit_of_measurement: "°C"
@@ -3017,7 +3020,7 @@ sensor:
     update_interval: 5s
 
   - platform: template
-    name: "Immergas - Temperature Zone 1"
+    name: "${entity_prefix}Temperature Zone 1"
     id: zone1_temp_sensor
     icon: mdi:home-thermometer-outline
     unit_of_measurement: "°C"
@@ -3030,7 +3033,7 @@ sensor:
     update_interval: 5s
 
   - platform: template
-    name: "Immergas - D06 External ambient temperature"
+    name: "${entity_prefix}D06 External ambient temperature"
     id: outside_temp_sensor
     icon: mdi:thermometer
     unit_of_measurement: "°C"
@@ -3046,7 +3049,7 @@ sensor:
   # Values from the Zone 1 panel / 0x29 diagnostics
   # ------------------------------------------------------------
   - platform: template
-    name: "Immergas - D41 Relative humidity zone 1"
+    name: "${entity_prefix}D41 Relative humidity zone 1"
     id: sensor_zone1_humidity
     icon: mdi:water-percent
     unit_of_measurement: "%"
@@ -3058,7 +3061,7 @@ sensor:
     update_interval: 5s
 
   - platform: template
-    name: "Immergas - D42 Relative humidity zone 2"
+    name: "${entity_prefix}D42 Relative humidity zone 2"
     id: sensor_zone2_humidity
     icon: mdi:water-percent
     unit_of_measurement: "%"
@@ -3070,7 +3073,7 @@ sensor:
     update_interval: 5s
 
   - platform: template
-    name: "Immergas - D102 Relative humidity zone 3"
+    name: "${entity_prefix}D102 Relative humidity zone 3"
     id: sensor_zone3_humidity
     icon: mdi:water-percent
     unit_of_measurement: "%"
@@ -3082,7 +3085,7 @@ sensor:
     update_interval: 5s
 
   - platform: template
-    name: "Immergas - Temperature Zone 2"
+    name: "${entity_prefix}Temperature Zone 2"
     id: sensor_zone2_temp
     icon: mdi:home-thermometer-outline
     unit_of_measurement: "°C"
@@ -3095,7 +3098,7 @@ sensor:
     update_interval: 5s
 
   - platform: template
-    name: "Immergas - Temperature Zone 3"
+    name: "${entity_prefix}Temperature Zone 3"
     id: sensor_zone3_temp
     icon: mdi:home-thermometer-outline
     unit_of_measurement: "°C"
@@ -3108,7 +3111,7 @@ sensor:
     update_interval: 5s
 
   - platform: template
-    name: "Immergas - Boiler firmware version"
+    name: "${entity_prefix}Boiler firmware version"
     id: sensor_pdu_29_3031_version
     icon: mdi:chip
     entity_category: diagnostic
@@ -3119,7 +3122,7 @@ sensor:
     update_interval: 30s
 
   - platform: template
-    name: "Immergas - Panel firmware version Zone 1"
+    name: "${entity_prefix}Panel firmware version Zone 1"
     id: sensor_pdu_29_3042_version
     icon: mdi:monitor-dashboard
     entity_category: diagnostic
@@ -3130,7 +3133,7 @@ sensor:
     update_interval: 30s
 
   - platform: template
-    name: "Immergas - Panel firmware version Zone 2"
+    name: "${entity_prefix}Panel firmware version Zone 2"
     id: sensor_panel2_version
     icon: mdi:monitor-dashboard
     entity_category: diagnostic
@@ -3141,7 +3144,7 @@ sensor:
     update_interval: 30s
 
   - platform: template
-    name: "Immergas - Panel firmware version Zone 3"
+    name: "${entity_prefix}Panel firmware version Zone 3"
     id: sensor_panel3_version
     icon: mdi:monitor-dashboard
     entity_category: diagnostic
@@ -3154,57 +3157,57 @@ sensor:
 text_sensor:
   - platform: debug
     reset_reason:
-      name: "Immergas - Reset reason"
+      name: "${entity_prefix}Reset reason"
       entity_category: diagnostic
 
   # v1.2.0
   - platform: template
-    name: "Immergas - Bus sniffer last change"
+    name: "${entity_prefix}Bus sniffer last change"
     id: sniff_last_change
     icon: mdi:radar
     entity_category: diagnostic
     update_interval: never
   - platform: template
-    name: "Immergas - D140-D142 Boiler clock"
+    name: "${entity_prefix}D140-D142 Boiler clock"
     id: sniff_clock_2300
     icon: mdi:clock-outline
     update_interval: never
   # v1.3.0 decoded zone-panel registers (0x29)
   - platform: template
-    name: "Immergas - A31 Zone 1 room thermostat"
+    name: "${entity_prefix}A31 Zone 1 room thermostat"
     id: panel_a31_termostat
     icon: mdi:thermostat
     update_interval: never
   - platform: template
-    name: "Immergas - Time program state (boiler)"
+    name: "${entity_prefix}Time program state (boiler)"
     id: piec_stan_programu
     icon: mdi:calendar-check
     update_interval: never
   - platform: template
-    name: "Immergas - HP Operating stage"
+    name: "${entity_prefix}HP Operating stage"
     id: pc_etap_pracy
     icon: mdi:progress-clock
     update_interval: never
   - platform: template
-    name: "Immergas - HP D120-D123 Outdoor main board firmware"
+    name: "${entity_prefix}HP D120-D123 Outdoor main board firmware"
     id: pc_fw_odu_main
     icon: mdi:chip
     entity_category: diagnostic
     update_interval: never
   - platform: template
-    name: "Immergas - HP D124-D127 Interface board (MIM) firmware"
+    name: "${entity_prefix}HP D124-D127 Interface board (MIM) firmware"
     id: pc_fw_interface
     icon: mdi:chip
     entity_category: diagnostic
     update_interval: never
   - platform: template
-    name: "Immergas - HP D128-D131 Inverter memory version"
+    name: "${entity_prefix}HP D128-D131 Inverter memory version"
     id: pc_fw_inv_mem
     icon: mdi:chip
     entity_category: diagnostic
     update_interval: never
   - platform: template
-    name: "Immergas - HP D132-D135 Inverter firmware"
+    name: "${entity_prefix}HP D132-D135 Inverter firmware"
     id: pc_fw_inv_fw
     icon: mdi:chip
     entity_category: diagnostic
@@ -3213,7 +3216,7 @@ text_sensor:
 
   # v110: project metadata (author + GitHub repo) - shown as device diagnostic entities.
   - platform: template
-    name: "Immergas - Author"
+    name: "${entity_prefix}Author"
     id: meta_author
     icon: mdi:account
     entity_category: diagnostic
@@ -3221,7 +3224,7 @@ text_sensor:
     lambda: |-
       return std::string("${author}");
   - platform: template
-    name: "Immergas - GitHub"
+    name: "${entity_prefix}GitHub"
     id: meta_github
     icon: mdi:github
     entity_category: diagnostic
@@ -3229,7 +3232,7 @@ text_sensor:
     lambda: |-
       return std::string("${github_url}");
   - platform: template
-    name: "Immergas - Project version"
+    name: "${entity_prefix}Project version"
     id: meta_version
     icon: mdi:tag-outline
     entity_category: diagnostic
@@ -3239,7 +3242,7 @@ text_sensor:
 
   # v91: boiler fault code as "E<code>" (e.g. E142) instead of the raw number (142.0). "None" when 0.
   - platform: template
-    name: "Immergas - Boiler fault (code)"
+    name: "${entity_prefix}Boiler fault (code)"
     id: dd_error_code_text
     icon: mdi:alert-circle
     entity_category: diagnostic
@@ -3254,7 +3257,7 @@ text_sensor:
   # v73: Zone 1 operating phase (Comfort/Eco/Manual) from PDU 2010 LB. bit6=Comfort, bit7=Eco, bit2=Manual
   # (Dominus app logic: flag8 bits 2/6/7). Read-only - the boiler writes 2010 to us (captured in handle_pdu).
   - platform: template
-    name: "Immergas - Zone 1 phase (Comfort-Eco)"
+    name: "${entity_prefix}Zone 1 phase (Comfort-Eco)"
     id: dd_zone1_phase_text
     icon: mdi:home-thermometer
     update_interval: 10s
@@ -3268,7 +3271,7 @@ text_sensor:
   # v96: Zone 2 operating phase (Comfort/Eco/Manual) from dd_zone2_status_raw. Placeholder - the boiler writes
   # zone 2 status only in a multi-zone setup (A13); with no data shows "—".
   - platform: template
-    name: "Immergas - Zone 2 phase (Comfort-Eco)"
+    name: "${entity_prefix}Zone 2 phase (Comfort-Eco)"
     id: dd_zone2_phase_text
     icon: mdi:home-thermometer
     update_interval: 10s
@@ -3282,7 +3285,7 @@ text_sensor:
 
   # v96: Zone 3 operating phase (Comfort/Eco/Manual) from dd_zone3_status_raw. Placeholder like Zone 2.
   - platform: template
-    name: "Immergas - Zone 3 phase (Comfort-Eco)"
+    name: "${entity_prefix}Zone 3 phase (Comfort-Eco)"
     id: dd_zone3_phase_text
     icon: mdi:home-thermometer
     update_interval: 10s
@@ -3299,7 +3302,7 @@ text_sensor:
   # language"). State = 'title. description -> action', fitted to HA's 255-char limit by shortening the
   # description, so title and action survive (faults_i18n.h).
   - platform: template
-    name: "Immergas - Boiler fault (description)"
+    name: "${entity_prefix}Boiler fault (description)"
     id: dd_error_text
     icon: mdi:alert-circle-outline
     entity_category: diagnostic
@@ -3310,7 +3313,7 @@ text_sensor:
 
   # v106: removed the "Atom operating mode" entity (diagnostic emulation-mode text - unnecessary).
   - platform: template
-    name: "Immergas - Controller internal date"
+    name: "${entity_prefix}Controller internal date"
     id: controller_date_text
     icon: mdi:calendar-clock
     entity_category: diagnostic
@@ -3331,36 +3334,36 @@ text_sensor:
 binary_sensor:
   # Zone 1 heating/cooling request = PDU 2010 bit3 (verified: 2010 = 12 with heating active).
   - platform: template
-    name: "Immergas - Zone 1 heating request"
+    name: "${entity_prefix}Zone 1 heating request"
     id: bs_zone1_heat_request
     device_class: heat
     lambda: |-
       return (id(dd_zone1_status_raw) & 0x08) != 0;
   # v1.3.0: 0x29 W 2001 status flags (bit 0 = DHW request pending, bit 2 = active boiler fault/anomaly)
   - platform: template
-    name: "Immergas - D09 DHW request pending"
+    name: "${entity_prefix}D09 DHW request pending"
     id: piec_zadanie_cwu_oczek
     icon: mdi:water-boiler-alert
   - platform: template
-    name: "Immergas - Boiler fault active (2001)"
+    name: "${entity_prefix}Boiler fault active (2001)"
     id: piec_blad_aktywny_2001
     device_class: problem
   # v1.2.0 heat-pump run flags (0x1E, published from handle_pdu)
   - platform: template
-    name: "Immergas - HP Run request (boiler)"
+    name: "${entity_prefix}HP Run request (boiler)"
     id: pc_zlecenie_pracy
     icon: mdi:power
   - platform: template
-    name: "Immergas - HP Request accepted"
+    name: "${entity_prefix}HP Request accepted"
     id: pc_zlecenie_przyjete
     icon: mdi:check-circle-outline
   - platform: template
-    name: "Immergas - HP Compressor running"
+    name: "${entity_prefix}HP Compressor running"
     id: pc_sprezarka_pracuje
     icon: mdi:heat-pump
     device_class: running
   - platform: template
-    name: "Immergas - HP Fan running"
+    name: "${entity_prefix}HP Fan running"
     id: pc_wentylator_pracuje
     icon: mdi:fan
     device_class: running
@@ -3368,14 +3371,14 @@ binary_sensor:
 
   # v71: boiler fault flag = PDU 2100 != 0; reset available = PDU 2101 LB bit1 (per Dominus config).
   - platform: template
-    name: "Immergas - Boiler fault active"
+    name: "${entity_prefix}Boiler fault active"
     id: dd_error_active
     device_class: problem
     entity_category: diagnostic
     lambda: |-
       return id(dd_err_code) != 0;
   - platform: template
-    name: "Immergas - Connection Dominus"
+    name: "${entity_prefix}Connection Dominus"
     id: bs_dominus_online
     device_class: connectivity
     entity_category: diagnostic
@@ -3384,7 +3387,7 @@ binary_sensor:
       return (millis() - id(dd_last_33_read_ms)) < 30000;
 
   - platform: template
-    name: "Immergas - Connection Panel Zone 1"
+    name: "${entity_prefix}Connection Panel Zone 1"
     id: bs_panel_online
     device_class: connectivity
     entity_category: diagnostic
@@ -3393,7 +3396,7 @@ binary_sensor:
       return (millis() - id(dd_last_29_read_ms)) < 30000;
 
   - platform: template
-    name: "Immergas - Connection Panel Zone 2"
+    name: "${entity_prefix}Connection Panel Zone 2"
     id: bs_panel2_online
     device_class: connectivity
     entity_category: diagnostic
@@ -3402,7 +3405,7 @@ binary_sensor:
       return (millis() - id(dd_last_2a_read_ms)) < 30000;
 
   - platform: template
-    name: "Immergas - Connection Panel Zone 3"
+    name: "${entity_prefix}Connection Panel Zone 3"
     id: bs_panel3_online
     device_class: connectivity
     entity_category: diagnostic
@@ -3411,7 +3414,7 @@ binary_sensor:
       return (millis() - id(dd_last_2b_read_ms)) < 30000;
 
   - platform: template
-    name: "Immergas - Connection Modbus"
+    name: "${entity_prefix}Connection Modbus"
     id: bs_modbus_online
     device_class: connectivity
     entity_category: diagnostic
@@ -3431,7 +3434,7 @@ binary_sensor:
 # time slot, Comfort makes the boiler switch to Manual - that is the boiler's behaviour, shown as is.
 climate:
   - platform: bus_climate
-    name: "Immergas - Thermostat Zone 1 (CH)"
+    name: "${entity_prefix}Thermostat Zone 1 (CH)"
     id: co_thermostat
     icon: mdi:radiator
     update_interval: 2s
@@ -3490,7 +3493,7 @@ climate:
           id(operating_mode_select).make_call().set_option(opt).perform();
 
   - platform: bus_climate
-    name: "Immergas - DHW Thermostat"
+    name: "${entity_prefix}DHW Thermostat"
     id: cwu_thermostat
     icon: mdi:water-boiler
     update_interval: 2s
@@ -3520,7 +3523,7 @@ climate:
   # Zone 2/3: same model. Current temperature = the zone's room value (NAN when that zone's panel emulation
   # is OFF); phase/request from 2010 written to 0x2A/0x2B (multi-zone setups only, A13).
   - platform: bus_climate
-    name: "Immergas - Thermostat Zone 2 (CH)"
+    name: "${entity_prefix}Thermostat Zone 2 (CH)"
     id: co_thermostat_2
     icon: mdi:radiator
     update_interval: 2s
@@ -3567,7 +3570,7 @@ climate:
           id(zone2_setpoint_number).make_call().set_value(raw / 10.0f).perform();
 
   - platform: bus_climate
-    name: "Immergas - Thermostat Zone 3 (CH)"
+    name: "${entity_prefix}Thermostat Zone 3 (CH)"
     id: co_thermostat_3
     icon: mdi:radiator
     update_interval: 2s
