@@ -4536,8 +4536,10 @@ interval:
                   }
                 }
               }
-              // 2300 (boiler -> panel) = boiler clock [day of week 3b][hour 5b][minute 8b], 1 = Mon .. 7 = Sun (CET, no DST)
-              if (addr == 0x29 && kind == 'W' && reg == 2300) {
+              // 2300 = boiler clock [day of week 3b][hour 5b][minute 8b], 1 = Mon .. 7 = Sun (CET, no DST).
+              // Any frame on 0x29: a boiler WRITE, or the physical panel's READ reply (the boiler also reads 2300 from
+              // the panel - the emulator serves it). Some setups only carry the READ reply.
+              if (addr == 0x29 && (kind == 'W' || kind == 'R') && reg == 2300) {
                 static int last2300 = -99999;
                 if (value != last2300) {
                   last2300 = value;
